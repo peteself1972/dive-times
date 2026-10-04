@@ -163,7 +163,7 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
   <details class="card" id="settings">
     <summary>Limits &amp; team</summary>
     <div class="set" id="setform"></div>
-    <p class="hint">Times are hours:minutes. Due in bell = first in water + max in water + all time spent back in the bell. A bell visit counts as a break once it reaches the minimum break, and the break-due clock restarts when the diver goes back out.</p>
+    <p class="hint">Times are hours:minutes. Due back = first in water + max in water + all time spent back in the bell. A bell visit counts as a break once it reaches the minimum break, and the break-due clock restarts when the diver goes back out.</p>
   </details>
 
   <details class="card">
@@ -223,7 +223,7 @@ function dcalc(d,now){const ev=d.ev,s=S();if(!ev.length)return{phase:'ready'};
   const first=ev[0].t,phase=done?'done':ev[ev.length-1].type==='in'?'water':'bell';
   const r={phase,first,water,bellT,segs,stints,breaks:segs.filter(x=>x.kind==='bell'&&x.isBreak&&!x.open).length,
     breakDue:(lastBreakEnd??first)+s.breakDue*MIN,dueBack:first+s.maxWater*MIN+bellT};
-  if(phase==='water')r.primary=r.breakDue<=r.dueBack?{label:'Break due',target:r.breakDue}:{label:'Due in bell',target:r.dueBack};
+  if(phase==='water')r.primary=r.breakDue<=r.dueBack?{label:'Break due',target:r.breakDue}:{label:'Due back',target:r.dueBack};
   else if(done)r.end=ev[ev.length-1].t;
   else{const v=segs[segs.length-1];r.visitStart=ev[ev.length-1].t;r.visit=v.len;r.visitOk=v.len>=s.minBreak*MIN}
   return r}
@@ -283,9 +283,9 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
       sub=`finished ${clock(c.end)} · in water from ${clock(c.first)} · breaks ${c.breaks}`;foot='<span class="ft">Dive finished · hold for details</span>'}
     else if(c.phase==='water'){const rem=c.primary.target-now,s=sev(rem);cls='sev-'+s;chip='In water '+clock(d0.ev.at(-1).t);
       lab=rem>0?c.primary.label+' in':c.primary.label+' overdue';big=(rem>0?'':'+')+dur(rem,1);
-      sub=`break due ${clock(c.breakDue)} · in bell ${clock(c.dueBack)} · water ${dur(c.water)}`}
+      sub=`break due ${clock(c.breakDue)} · due back ${clock(c.dueBack)}`}
     else{cls=c.visitOk?'sev-green':'sev-wait';chip='In bell '+clock(c.visitStart);lab=c.visitOk?'In bell · counts as break':'In bell';big=dur(c.visit,1);
-      sub=c.visitOk?`total in water ${dur(c.water)}`:`break counts at ${clock(c.visitStart+S().minBreak*MIN)} · water ${dur(c.water)}`}}
+      sub=c.visitOk?`due back ${clock(c.dueBack)}`:`break counts at ${clock(c.visitStart+S().minBreak*MIN)} · due back ${clock(c.dueBack)}`}}
   const pressing=el.classList.contains('pressing')?' pressing':'';
   setCls(el,'tile '+cls+pressing);put(el,'chip',chip);put(el,'lab',lab);put(el,'big',big);put(el,'sub',sub);put(el,'foot',foot)}
 
@@ -298,7 +298,7 @@ const fig=(k,label,cls='')=>`<div class="row ${cls}"><dt>${label}</dt><dd data-k
 function renderDetail(){if(!openWho)return;const who=openWho,ev=evOf(who);
   let figs;
   if(who==='bell')figs=fig('st','Status')+fig('first','First locked off')+fig('due','Lock on due')+fig('ons','Times locked on')+fig('run','Total bell run','key');
-  else figs=fig('st','Status')+fig('first','First in water')+fig('bdue','Break due')+fig('dback','Due in bell')+(isDone(who)?'':fig('bellT','Time back in bell'))+'<div data-k="stints"></div>'+fig('water','Total in water','key');
+  else figs=fig('st','Status')+fig('first','First in water')+fig('bdue','Break due')+fig('dback','Due back')+(isDone(who)?'':fig('bellT','Time back in bell'))+'<div data-k="stints"></div>'+fig('water','Total in water','key');
   const done=isDone(who);
   const rows=ev.map((e,i)=>`<div class="row ev"><dt><label for="ev-${i}">${e.fin?LABEL[e.type]+' · '+finWord(who)+' finished':LABEL[e.type]}</label><span class="seg" data-k="seg${i}"></span></dt>
     <dd><input type="time" id="ev-${i}" data-i="${i}" value="${clock(e.t)}"></dd></div>`).join('')
@@ -344,7 +344,7 @@ function tick(){const now=Date.now();document.getElementById('clock').textConten
   const alerts=[];const b=bcalc(now);
   if(b.phase==='off')alerts.push({who:'bell',label:'Lock on',target:b.due});
   for(const d of people()){const c=dcalc(d,now);
-    if(c.phase==='water'){alerts.push({who:d.id,label:'Break',target:c.breakDue});alerts.push({who:d.id,label:'Due in bell',target:c.dueBack})}
+    if(c.phase==='water'){alerts.push({who:d.id,label:'Break',target:c.breakDue});alerts.push({who:d.id,label:'Due back',target:c.dueBack})}
     if(c.phase==='bell'&&c.visitOk){const key=d.id+'|ok|'+c.visitStart;if(!fired.has(key)){fired.add(key);ring('info')}}}
   let html='',edge=0;const RANK={warn:1,crit:2,over:3};
   for(const a of alerts){const rem=a.target-now,s=sev(rem);if(s==='ok')continue;
