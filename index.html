@@ -274,8 +274,8 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
     else if(c.phase==='done'){cls='sev-done';chip='Finished '+clock(c.last);lab='Total bell run';big=dur(c.run);
       sub=`first locked off ${clock(c.first)} · locked on ${c.lockOns}×`;foot='<span class="ft">Bell run finished · hold for details</span>'}
     else if(c.phase==='off'){const rem=c.due-now,s=sev(rem);cls='sev-'+s;chip='Locked off '+clock(c.last);
-      lab=rem>0?'Lock on due in':'Lock on overdue';big=(rem>0?'':'+')+dur(rem,1);sub=`due ${clock(c.due)} · bell run ${dur(c.run)}`}
-    else{chip='Locked on '+clock(c.last);lab='Total bell run';big=dur(c.run);sub=`lock on due ${clock(c.due)} · locked on ${c.lockOns}×`}}
+      lab=rem>0?'Lock on due in':'Lock on overdue';big=(rem>0?'':'+')+dur(rem,1);sub=`due back ${clock(c.due)} · bell run ${dur(c.run)}`}
+    else{chip='Locked on '+clock(c.last);lab='Total bell run';big=dur(c.run);sub=`due back ${clock(c.due)} · locked on ${c.lockOns}×`}}
   else{const d0=state.divers.find(d=>d.id===who),c=dcalc(d0,now);
     if(c.phase!=='ready'&&c.phase!=='done')foot+=`<button class="finbtn" data-act="finish" data-who="${who}">Finish dive</button>`;
     if(c.phase==='ready'){chip='Ready';lab='Not in water';big='–:––'}
