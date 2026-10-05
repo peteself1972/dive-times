@@ -454,7 +454,11 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 document.getElementById('test').addEventListener('click',async()=>{unlock();ring('crit');toast('If you heard nothing, check the phone volume');
   try{if('Notification'in window&&Notification.permission==='default')await Notification.requestPermission()}catch(e){}});
 if(wantWake)getWake();
-if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+if('serviceWorker'in navigator){const hadSW=!!navigator.serviceWorker.controller;let reloaded=false;
+  // when a new version takes over, reload once so the update shows straight away (times are kept on the phone)
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadSW&&!reloaded){reloaded=true;location.reload()}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{})})}).catch(()=>{}))}
 
 render();setInterval(tick,1000);
 </script>
