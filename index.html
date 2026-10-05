@@ -84,9 +84,9 @@ main{display:grid;gap:12px;max-width:560px;margin:12px auto 0}
 .sev-warn{border-left-color:var(--warn)} .sev-warn .t-big{color:var(--warn)} .sev-warn .chip{color:var(--warn);border-color:var(--warn)}
 .sev-crit,.sev-over{border-left-color:var(--crit)} .sev-crit .t-big,.sev-over .t-big{color:var(--crit)} .sev-crit .chip,.sev-over .chip{color:var(--crit);border-color:var(--crit)}
 .sev-over{background:var(--over-bg)}
-/* all writing on an active tile takes that tile's alarm colour */
+/* while a warning/overdue alarm is active, all writing on the tile takes the alarm colour */
 .tile.sev-ok,.tile.sev-green{--tc:var(--ok)} .tile.sev-wait{--tc:var(--accent)} .tile.sev-warn{--tc:var(--warn)} .tile.sev-crit,.tile.sev-over{--tc:var(--crit)}
-.tile[class*="sev-"]:not(.sev-done) :is(.t-name,.t-lab,.t-big,.t-big small,.t-sub,.t-foot,.t-foot b){color:var(--tc)}
+.tile:is(.sev-warn,.sev-crit,.sev-over) :is(.t-name,.t-lab,.t-big,.t-big small,.t-sub,.t-foot,.t-foot b){color:var(--tc)}
 
 .hint{font-size:.85rem;color:var(--muted);margin:0;max-width:62ch}
 
