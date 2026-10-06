@@ -197,6 +197,9 @@ if(!state){state=JSON.parse(JSON.stringify(DEF));
   try{const o=JSON.parse(localStorage.getItem(OLD));if(o){Object.assign(state.settings,o.settings||{});state.history=o.history||[];
     (o.divers||[]).forEach(od=>{const d=state.divers.find(x=>x.id===od.id);if(d&&od.name)d.name=od.name})}}catch(e){}}
 state.settings={...DEF.settings,...state.settings};
+// every stamp is a whole minute, so totals always equal the difference of the times shown (no seconds hidden in the maths)
+const nowMin=()=>Math.floor(Date.now()/60000)*60000;
+[state.bell,...state.divers.map(d=>d.ev)].forEach(l=>l.forEach(e=>{e.t=Math.floor(e.t/60000)*60000}));
 // older saves have no Diver 3: add it before the bellman
 if(!state.divers.some(d=>d.id==='d3'))state.divers.splice(state.divers.findIndex(d=>d.id==='bm'),0,{id:'d3',name:'Diver 3',ev:[]});
 function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
@@ -245,12 +248,12 @@ let undoInfo=null,undoTimer=null;
 const isDone=who=>{const ev=evOf(who);return !!(ev.length&&ev[ev.length-1].fin)};
 const finWord=who=>who==='bell'?'bell run':'dive';
 function stamp(who){if(isDone(who)){toast(`${nameOf(who)}: ${finWord(who)} finished. Hold the tile for details.`);return}
-  const type=nextType(who),t=Date.now();evOf(who).push({type,t});save();
+  const type=nextType(who),t=nowMin();evOf(who).push({type,t});save();
   undoInfo={who,kind:'add',len:evOf(who).length,t};showUndo(`${nameOf(who)}: ${LABEL[type]} ${clock(t)}`)}
 function finish(who){const ev=evOf(who),last=ev[ev.length-1];if(!last||last.fin)return;
   const endType=who==='bell'?'on':'bell';
   if(last.type===endType){last.fin=true;undoInfo={who,kind:'fin',len:ev.length,t:last.t}}
-  else{const t=Date.now();ev.push({type:endType,t,fin:true});undoInfo={who,kind:'add',len:ev.length,t}}
+  else{const t=nowMin();ev.push({type:endType,t,fin:true});undoInfo={who,kind:'add',len:ev.length,t}}
   save();showUndo(`${nameOf(who)}: ${finWord(who)} finished ${clock(ev[ev.length-1].t)}`)}
 function showUndo(msg){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
   document.getElementById('undotxt').textContent=msg;
