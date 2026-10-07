@@ -113,6 +113,8 @@ details.card[open]>*:not(summary){margin-top:12px}
 .set input[type="text"],.set input[type="number"]{width:6.5em;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums}
 .set input.name{width:9em;text-align:left}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
+.okflash{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)!important}
+.okfade{transition:background .8s,color .8s,border-color .8s}
 .act.okflash{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)!important}
 .act.okfade{transition:background .8s,color .8s,border-color .8s}
 .act{flex:1 1 140px;min-height:52px;border-radius:10px;border:none;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-weight:700;font-size:1.15rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
@@ -414,6 +416,9 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.tile'))e.preve
 document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.tile');if(t&&(e.key==='Enter'||e.key===' ')&&e.target===t){e.preventDefault();stamp(t.dataset.tile)}});
 
 /* ---------- clicks ---------- */
+function okFlash(b,text,after){const orig=b.innerHTML;b.classList.add('okflash');b.textContent=text;
+  setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
+  setTimeout(()=>{b.innerHTML=orig;b.classList.remove('okfade');if(after)after()},1800)}
 function confirm2(btn,msg){if(btn.dataset.armed==='1'){btn.dataset.armed='';btn.innerHTML=btn.dataset.orig;btn.classList.remove('armed');return true}
   btn.dataset.armed='1';btn.dataset.orig=btn.innerHTML;btn.textContent=msg;btn.classList.add('armed');
   setTimeout(()=>{if(btn.isConnected&&btn.dataset.armed==='1'){btn.dataset.armed='';btn.innerHTML=btn.dataset.orig;btn.classList.remove('armed')}},3500);return false}
@@ -440,12 +445,14 @@ document.addEventListener('click',async e=>{
     b.classList.add('okflash');b.textContent='Run deleted';
     setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
     setTimeout(()=>{b.textContent='Delete run';b.classList.remove('okfade')},1800);return}
-  if(act==='share'){const i=+b.dataset.i,txt=state.history[i].text;
-    try{if(!navigator.share)throw 0;await navigator.share({title:'Dive times',text:txt});return}catch(err){if(err&&err.name==='AbortError')return}
-    const row=document.getElementById('sh'+i);row.hidden=!row.hidden;return}
-  if(act==='delrun'){if(!confirm2(b,'Tap again to delete'))return;state.history.splice(+b.dataset.i,1);save();renderHist();toast('Run deleted');return}
-  if(act==='copy'){const txt=state.history[+b.dataset.i].text;
-    try{await navigator.clipboard.writeText(txt);toast('Copied')}catch(err){const r=document.createRange();r.selectNodeContents(document.getElementById('h'+b.dataset.i));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Selected: use Copy from the menu')}}});
+  // saved-run buttons: press -> Confirm -> green result, then back to normal after 1 s
+  if(act==='share'||act==='copy'||act==='delrun'){if(b.classList.contains('okflash'))return;
+    const i=+b.dataset.i,txt=state.history[i].text;if(!confirm2(b,'Confirm'))return;
+    if(act==='delrun'){okFlash(b,'Deleted',()=>{state.history.splice(i,1);save();renderHist()});return}
+    if(act==='copy'){try{await navigator.clipboard.writeText(txt);okFlash(b,'Copied')}
+      catch(err){const r=document.createRange();r.selectNodeContents(document.getElementById('h'+i));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);toast('Selected: use Copy from the menu')}return}
+    try{if(!navigator.share)throw 0;await navigator.share({title:'Dive times',text:txt});okFlash(b,'Shared');return}catch(err){if(err&&err.name==='AbortError')return}
+    const row=document.getElementById('sh'+i);row.hidden=!row.hidden;return}});
 
 document.addEventListener('change',e=>{const el=e.target;
   if(el.matches('#detail input[type="time"]')){editTime(+el.dataset.i,el.value);return}
