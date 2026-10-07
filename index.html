@@ -434,12 +434,12 @@ document.addEventListener('click',async e=>{
   if(act==='save'){if(b.classList.contains('okflash'))return;if(!state.bell.length&&!people().some(d=>d.ev.length)){toast('Nothing to save yet');return}
     if(!confirm2(b,'Confirm'))return;state.history.unshift({at:Date.now(),text:runText()});state.history=state.history.slice(0,30);resetRun();
     b.classList.add('okflash');b.textContent='Saved and reset';
-    setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1800);
-    setTimeout(()=>{b.innerHTML='Save run &amp; reset';b.classList.remove('okfade')},2600);return}
+    setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
+    setTimeout(()=>{b.innerHTML='Save run &amp; reset';b.classList.remove('okfade')},1800);return}
   if(act==='reset'){if(b.classList.contains('okflash'))return;if(!confirm2(b,'Confirm'))return;resetRun();
     b.classList.add('okflash');b.textContent='Run deleted';
-    setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1800);
-    setTimeout(()=>{b.textContent='Delete run';b.classList.remove('okfade')},2600);return}
+    setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
+    setTimeout(()=>{b.textContent='Delete run';b.classList.remove('okfade')},1800);return}
   if(act==='share'){const i=+b.dataset.i,txt=state.history[i].text;
     try{if(!navigator.share)throw 0;await navigator.share({title:'Dive times',text:txt});return}catch(err){if(err&&err.name==='AbortError')return}
     const row=document.getElementById('sh'+i);row.hidden=!row.hidden;return}
