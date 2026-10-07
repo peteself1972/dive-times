@@ -74,6 +74,7 @@ main{display:grid;gap:12px;max-width:560px;margin:12px auto 0}
 .t-foot b{color:var(--fg)}
 .t-foot{display:flex;align-items:center;gap:10px;min-height:44px}
 .t-foot .ft{flex:1;min-width:0}
+.finbtn.blocked,.act.fin.blocked{opacity:.4}
 .finbtn{flex:0 0 auto;min-height:44px;padding:0 14px;border-radius:10px;border:none;background:#c8321c;color:#fff;
   font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
 .sev-done{border-left-color:var(--muted);opacity:.85} .sev-done .t-foot{color:var(--muted)}
@@ -250,7 +251,11 @@ const finWord=who=>who==='bell'?'bell run':'dive';
 function stamp(who){if(isDone(who)){toast(`${nameOf(who)}: ${finWord(who)} finished. Hold the tile for details.`);return}
   const type=nextType(who),t=nowMin();evOf(who).push({type,t});save();
   undoInfo={who,kind:'add',len:evOf(who).length,t};showUndo(`${nameOf(who)}: ${LABEL[type]} ${clock(t)}`)}
+// people still in the water (the bell run cannot be finished while anyone is)
+const inWater=()=>people().filter(d=>dcalc(d,Date.now()).phase==='water');
 function finish(who){const ev=evOf(who),last=ev[ev.length-1];if(!last||last.fin)return;
+  if(who==='bell'){const w=inWater();if(w.length){toast(`Can't finish the bell run: ${w.map(d=>d.name).join(' and ')} ${w.length>1?'are':'is'} still in the water`);
+    try{navigator.vibrate&&navigator.vibrate([80,60,80])}catch(e){}return}}
   const endType=who==='bell'?'on':'bell';
   if(last.type===endType){last.fin=true;undoInfo={who,kind:'fin',len:ev.length,t:last.t}}
   else{const t=nowMin();ev.push({type:endType,t,fin:true});undoInfo={who,kind:'add',len:ev.length,t}}
@@ -278,7 +283,7 @@ function setCls(el,c){if(el.className!==c)el.className=c}
 function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${who}"]`);if(!el)return;
   let chip,lab,big,sub='',cls='';let foot=`<span class="ft">Tap ▸ <b>${LABEL[nextType(who)]}</b></span>`;
   if(who==='bell'){const c=bcalc(now);
-    if(c.phase==='off'||c.phase==='on')foot+=`<button class="finbtn" data-act="finish" data-who="bell">Finish bell run</button>`;
+    if(c.phase==='off'||c.phase==='on')foot+=`<button class="finbtn${inWater().length?' blocked':''}" data-act="finish" data-who="bell">Finish bell run</button>`;
     if(c.phase==='ready'){chip='Ready';lab='Bell not locked off';big='–:––'}
     else if(c.phase==='done'){cls='sev-done';chip='Finished '+clock(c.last);lab='Total bell run';big=dur(c.run);
       sub=`first locked off ${clock(c.first)} · locked on ${c.lockOns}×`;foot='<span class="ft">Bell run finished · hold for details</span>'}
@@ -317,7 +322,7 @@ function renderDetail(){if(!openWho)return;const who=openWho,ev=evOf(who);
     <div class="box"><dl>${figs}</dl></div>
     <div class="box"><h3>Times · tap a time to correct it</h3><dl>${rows}</dl></div>
     <div class="actions">${done?'':`<button class="act" data-act="dstamp">Stamp now: ${LABEL[nextType(who)]}</button>`}
-    ${ev.length&&!done?`<button class="act fin" data-act="dfinish">Finish ${finWord(who)}</button>`:''}
+    ${ev.length&&!done?`<button class="act fin${who==='bell'&&inWater().length?' blocked':''}" data-act="dfinish">Finish ${finWord(who)}</button>`:''}
     ${done?`<button class="act ghost" data-act="dreopen">Reopen ${finWord(who)}</button>`:ev.length?`<button class="act ghost" data-act="dundo">Delete last time</button>`:''}</div></div>`;
   paintDetail(Date.now())}
 function paintDetail(now){if(!openWho)return;const root=document.getElementById('detail'),who=openWho,f=v=>v==null?'–':clock(v);
