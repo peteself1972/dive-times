@@ -445,9 +445,9 @@ document.addEventListener('click',async e=>{
     b.classList.add('okflash');b.textContent='Run deleted';
     setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
     setTimeout(()=>{b.textContent='Delete run';b.classList.remove('okfade')},1800);return}
-  // saved-run buttons: press -> Confirm -> green result, then back to normal after 1 s
+  // saved-run buttons: Delete needs Confirm; Copy/Share act at once. All show a green result for 1 s
   if(act==='share'||act==='copy'||act==='delrun'){if(b.classList.contains('okflash'))return;
-    const i=+b.dataset.i,txt=state.history[i].text;if(!confirm2(b,'Confirm'))return;
+    const i=+b.dataset.i,txt=state.history[i].text;if(act==='delrun'&&!confirm2(b,'Confirm'))return;
     if(act==='delrun'){okFlash(b,'Deleted',()=>{state.history.splice(i,1);save();renderHist()});return}
     if(act==='copy'){try{await navigator.clipboard.writeText(txt);okFlash(b,'Copied')}
       catch(err){const r=document.createRange();r.selectNodeContents(document.getElementById('h'+i));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);toast('Selected: use Copy from the menu')}return}
