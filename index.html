@@ -303,7 +303,7 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
       sub=`finished ${clock(c.end)} · in water from ${clock(c.first)} · breaks ${c.breaks}`;foot='<span class="ft">Dive finished · hold for details</span>'}
     else if(c.phase==='water'){const rem=c.primary.target-now,s=sev(rem);cls='sev-'+s;chip='In water '+clock(d0.ev.at(-1).t);
       lab=rem>0?c.primary.label+' in':c.primary.label+' overdue';big=(rem>0?'':'+')+dur(rem,1);
-      x=[['Break due at',clock(c.breakDue)],['Due back',clock(c.dueBack)]]}
+      x=[['Break due at',c.breakDue>=c.dueBack?'N/A':clock(c.breakDue)],['Due back',clock(c.dueBack)]]}
     else{cls=c.visitOk?'sev-green':'sev-wait';chip='In bell '+clock(c.visitStart);lab=c.visitOk?'In bell · counts as break':'In bell';big=dur(c.visit,1);
       x=c.visitOk?[['Due back',clock(c.dueBack)]]:[['Break at',clock(c.visitStart+S().minBreak*MIN)],['Due back',clock(c.dueBack)]]}}
   const pressing=el.classList.contains('pressing')?' pressing':'';
@@ -343,7 +343,7 @@ function paintDetail(now){if(!openWho)return;const root=document.getElementById(
     if(c.phase==='ready'){['first','bdue','dback','bellT','water'].forEach(k=>put(root,k,'–'));put(root,'stints','');return}
     const ORD=['1st','2nd','3rd','4th','5th','6th','7th','8th'];
     put(root,'stints',c.stints.map((v,i)=>`<div class="row"><dt>In water ${i>0?'after '+(ORD[i-1]||i+'th')+' break':c.segs.some(g=>g.kind==='bell'&&g.isBreak)?'before 1st break':'(no break)'}</dt><dd>${dur(v)}</dd></div>`).join(''));
-    put(root,'first',clock(c.first));put(root,'bdue',c.phase==='water'?clock(c.breakDue):c.phase==='done'?'–':'after back out');put(root,'dback',c.phase==='done'?'–':clock(c.dueBack));
+    put(root,'first',clock(c.first));put(root,'bdue',c.phase==='water'?(c.breakDue>=c.dueBack?'N/A':clock(c.breakDue)):c.phase==='done'?'–':'after back out');put(root,'dback',c.phase==='done'?'–':clock(c.dueBack));
 put(root,'bellT',dur(c.bellT));put(root,'water',dur(c.water));
     c.segs.forEach((g,i)=>{const so=g.open?' so far':'';
       if(g.kind==='fin'){put(root,'seg'+i,'end of dive');return}
@@ -364,7 +364,7 @@ function tick(){const now=Date.now();document.getElementById('clock').textConten
   const alerts=[];const b=bcalc(now);
   if(b.phase==='off')alerts.push({who:'bell',label:'Lock on',target:b.due});
   for(const d of people()){const c=dcalc(d,now);
-    if(c.phase==='water'){alerts.push({who:d.id,label:'Break',target:c.breakDue});alerts.push({who:d.id,label:'Due back',target:c.dueBack})}
+    if(c.phase==='water'){if(c.breakDue<c.dueBack)alerts.push({who:d.id,label:'Break',target:c.breakDue});alerts.push({who:d.id,label:'Due back',target:c.dueBack})}
     if(c.phase==='bell'&&c.visitOk){const key=d.id+'|ok|'+c.visitStart;if(!fired.has(key)){fired.add(key);ring('info')}}}
   let html='',edge=0;const RANK={warn:1,crit:2,over:3};
   for(const a of alerts){const rem=a.target-now,s=sev(rem);if(s==='ok')continue;
