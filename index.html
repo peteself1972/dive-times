@@ -115,6 +115,9 @@ details.card[open]>*:not(summary){margin-top:12px}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
 .okflash{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)!important}
 .okfade{transition:background .8s,color .8s,border-color .8s}
+/* Run log: Save and Delete share the row more evenly */
+.act[data-act="save"]{flex:1.4 1 0;min-width:0}
+.act.ghost[data-act="reset"]{flex:1 1 0;min-width:0;min-height:52px;font-size:1.1rem}
 .act.okflash{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)!important}
 .act.okfade{transition:background .8s,color .8s,border-color .8s}
 .act{flex:1 1 140px;min-height:52px;border-radius:10px;border:none;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-weight:700;font-size:1.15rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
