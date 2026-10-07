@@ -85,7 +85,7 @@ main{display:grid;gap:12px;max-width:560px;margin:12px auto 0}
 .t-foot .ft.tapbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35em;min-height:44px;padding:0 12px;border:2px solid currentColor;border-radius:10px;white-space:nowrap;color:var(--fg);font-size:1rem;letter-spacing:.04em}
 .t-foot .finbtn{padding:0 12px;font-size:1rem;letter-spacing:.04em}
 .t-foot{gap:8px}
-.finbtn.blocked,.act.fin.blocked{opacity:.4}
+.finbtn.blocked,.act.fin.blocked,.tapbtn.blocked{opacity:.4}
 .finbtn{flex:0 0 auto;min-height:44px;padding:0 14px;border-radius:10px;border:none;background:#c8321c;color:#fff;
   font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
 .sev-done{border-left-color:var(--muted);opacity:.85} .sev-done .t-foot{color:var(--muted)}
@@ -261,7 +261,10 @@ const LABEL={off:'Locked off',on:'Locked on',in:'In water',bell:'In bell'};
 let undoInfo=null,undoTimer=null;
 const isDone=who=>{const ev=evOf(who);return !!(ev.length&&ev[ev.length-1].fin)};
 const finWord=who=>who==='bell'?'bell run':'dive';
+// a diver can only be locked out (into the water) while the bell is locked off
+const lockoutBlocked=who=>who!=='bell'&&nextType(who)==='in'&&bcalc(Date.now()).phase!=='off';
 function stamp(who){if(isDone(who)){toast(`${nameOf(who)}: ${finWord(who)} finished. Hold the tile for details.`);return}
+  if(lockoutBlocked(who)){toast(`Can't lock ${nameOf(who)} out: the bell isn't locked off`);try{navigator.vibrate&&navigator.vibrate([80,60,80])}catch(e){}return}
   const type=nextType(who),t=nowMin();evOf(who).push({type,t});save();
   undoInfo={who,kind:'add',len:evOf(who).length,t};showUndo(`${nameOf(who)}: ${LABEL[type]} ${clock(t)}`)}
 // people still in the water (the bell run cannot be finished while anyone is)
@@ -294,7 +297,7 @@ function put(root,k,html){const el=root.querySelector(`[data-k="${k}"]`);if(el&&
 function setCls(el,c){if(el.className!==c)el.className=c}
 
 function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${who}"]`);if(!el)return;
-  let chip,lab,big,sub='',cls='',x=[];let foot=`<span class="ft tapbtn">Tap ▸ <b>${LABEL[nextType(who)]}</b></span>`;
+  let chip,lab,big,sub='',cls='',x=[];let foot=`<span class="ft tapbtn${lockoutBlocked(who)?' blocked':''}">Tap ▸ <b>${LABEL[nextType(who)]}</b></span>`;
   if(who==='bell'){const c=bcalc(now);
     if(c.phase==='off'||c.phase==='on')foot+=`<button class="finbtn${inWater().length?' blocked':''}" data-act="finish" data-who="bell">Finish bell run</button>`;
     if(c.phase==='ready'){chip='Ready';lab='Bell not locked off';big='–:––'}
