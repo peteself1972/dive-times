@@ -1,6 +1,6 @@
 // Dive Times service worker: keeps the app working offline.
 // Bump VERSION whenever any app file changes so phones pick up the update.
-const VERSION = 'dive-times-v21';
+const VERSION = 'dive-times-v22';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 
 self.addEventListener('install', e => {

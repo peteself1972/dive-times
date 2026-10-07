@@ -113,6 +113,8 @@ details.card[open]>*:not(summary){margin-top:12px}
 .set input[type="text"],.set input[type="number"]{width:6.5em;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums}
 .set input.name{width:9em;text-align:left}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
+.act.okflash{background:var(--ok)!important;color:#fff!important;border-color:var(--ok)!important}
+.act.okfade{transition:background .8s,color .8s,border-color .8s}
 .act{flex:1 1 140px;min-height:52px;border-radius:10px;border:none;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-weight:700;font-size:1.15rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
 .act.fin{background:#c8321c;color:#fff;border:none}
 .act.alt{background:var(--raise);color:var(--fg);border:1px solid var(--line)}
@@ -188,7 +190,7 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
     <summary>Run log</summary>
     <div class="actions">
       <button class="act alt" data-act="save">Save run &amp; reset</button>
-      <button class="act ghost" data-act="reset">Reset without saving</button>
+      <button class="act ghost" data-act="reset">Delete run</button>
     </div>
     <div class="hist" id="hist"></div>
     <p class="hint">Runs and live times are kept in this browser on this phone only.</p>
@@ -412,7 +414,7 @@ document.addEventListener('contextmenu',e=>{if(e.target.closest('.tile'))e.preve
 document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.tile');if(t&&(e.key==='Enter'||e.key===' ')&&e.target===t){e.preventDefault();stamp(t.dataset.tile)}});
 
 /* ---------- clicks ---------- */
-function confirm2(btn,msg){if(btn.dataset.armed==='1'){btn.dataset.armed='';return true}
+function confirm2(btn,msg){if(btn.dataset.armed==='1'){btn.dataset.armed='';btn.innerHTML=btn.dataset.orig;btn.classList.remove('armed');return true}
   btn.dataset.armed='1';btn.dataset.orig=btn.innerHTML;btn.textContent=msg;btn.classList.add('armed');
   setTimeout(()=>{if(btn.isConnected&&btn.dataset.armed==='1'){btn.dataset.armed='';btn.innerHTML=btn.dataset.orig;btn.classList.remove('armed')}},3500);return false}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3500)}
@@ -431,7 +433,10 @@ document.addEventListener('click',async e=>{
   if(act==='ack'){acked.add(b.dataset.key);tick();return}
   if(act==='save'){if(!state.bell.length&&!people().some(d=>d.ev.length)){toast('Nothing to save yet');return}
     if(!confirm2(b,'Tap again to save & clear'))return;state.history.unshift({at:Date.now(),text:runText()});state.history=state.history.slice(0,30);resetRun();toast('Run saved to log');return}
-  if(act==='reset'){if(!confirm2(b,'Tap again: times will be lost'))return;resetRun();toast('Run cleared');return}
+  if(act==='reset'){if(b.classList.contains('okflash'))return;if(!confirm2(b,'Confirm'))return;resetRun();
+    b.classList.add('okflash');b.textContent='Run deleted';
+    setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1800);
+    setTimeout(()=>{b.textContent='Delete run';b.classList.remove('okfade')},2600);return}
   if(act==='share'){const i=+b.dataset.i,txt=state.history[i].text;
     try{if(!navigator.share)throw 0;await navigator.share({title:'Dive times',text:txt});return}catch(err){if(err&&err.name==='AbortError')return}
     const row=document.getElementById('sh'+i);row.hidden=!row.hidden;return}
@@ -454,7 +459,7 @@ function runText(){const now=Date.now(),b=bcalc(now);let s=`Bell run ${new Date(
     const parts=d.ev.map((e,i)=>{const g=c.segs[i];if(g.kind==='fin')return `finished ${clock(e.t)}`;return `${e.type==='in'?'out':'bell'} ${clock(e.t)} (${dur(g.len)}${g.kind==='bell'?(g.isBreak?' break':' short'):''})`});
     s+=`${d.name}: ${parts.join(', ')}\n  In water ${c.stints.map(v=>dur(v)).join(' + ')} = ${dur(c.water)} total · back in bell ${dur(c.bellT)}\n`}
   return s.trim()}
-function resetRun(){state.bell=[];state.divers.forEach(d=>d.ev=[]);fired.clear();acked.clear();save();render()}
+function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);fired.clear();acked.clear();save();render()}
 function renderSettings(){const s=S(),f=document.getElementById('setform');if(f.contains(document.activeElement))return;
   const t=(k,l)=>`<label for="s-${k}">${l}</label><input type="text" inputmode="numeric" id="s-${k}" data-set="${k}" data-kind="hm" value="${hm(s[k])}">`;
   const n=(k,l)=>`<label for="s-${k}">${l}</label><input type="number" min="1" max="120" id="s-${k}" data-set="${k}" data-kind="n" value="${s[k]}">`;
