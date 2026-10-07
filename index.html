@@ -453,11 +453,27 @@ document.addEventListener('change',e=>{const el=e.target;
   if(el.dataset.name){const d=state.divers.find(x=>x.id===el.dataset.name);d.name=el.value.trim()||d.name;save();el.blur();render()}});
 
 /* ---------- log, settings ---------- */
-function runText(){const now=Date.now(),b=bcalc(now);let s=`Bell run ${new Date(state.bell[0]?.t||now).toLocaleDateString('en-GB')}\n`;
-  s+=b.phase==='ready'?'Bell not locked off\n':`Bell: first locked off ${clock(b.first)}, ${b.phase!=='off'?(b.phase==='done'?'finished ':'last locked on ')+clock(b.last):'still locked off'}, locked on ${b.lockOns}×, bell run ${dur(b.run)}\n`;
-  for(const d of people()){const c=dcalc(d,now);if(c.phase==='ready'){s+=`${d.name}: did not dive\n`;continue}
-    const parts=d.ev.map((e,i)=>{const g=c.segs[i];if(g.kind==='fin')return `finished ${clock(e.t)}`;return `${e.type==='in'?'out':'bell'} ${clock(e.t)} (${dur(g.len)}${g.kind==='bell'?(g.isBreak?' break':' short'):''})`});
-    s+=`${d.name}: ${parts.join(', ')}\n  In water ${c.stints.map(v=>dur(v)).join(' + ')} = ${dur(c.water)} total · back in bell ${dur(c.bellT)}\n`}
+function runText(){const now=Date.now(),b=bcalc(now),day=new Date(state.bell[0]?.t||now).toLocaleDateString('en-GB');
+  // 1) every stamp from the bell and all divers, in time order
+  const ev=[];
+  state.bell.forEach((e,i)=>ev.push({t:e.t,o:i,txt:e.type==='off'?'Bell locked off':(e.fin?'Bell locked on - run finished':'Bell locked on')}));
+  for(const d of people()){const c=dcalc(d,now);if(c.phase==='ready')continue;
+    d.ev.forEach((e,i)=>{let txt;
+      if(e.fin)txt=`${d.name} in bell - dive finished`;
+      else if(e.type==='bell')txt=`${d.name} in bell`;
+      else if(i===0)txt=`${d.name} in water`;
+      else{const g=c.segs[i-1];txt=`${d.name} in water (${g.isBreak?'after '+dur(g.len)+' break':dur(g.len)+' in bell, not a break'})`}
+      ev.push({t:e.t,o:100+i,txt})})}
+  ev.sort((a,b)=>a.t-b.t||a.o-b.o);
+  let s=`DIVE TIMES ${day}\n\nSEQUENCE OF EVENTS\n`;
+  s+=ev.length?ev.map(e=>`${clock(e.t)}  ${e.txt}`).join('\n'):'No times recorded';
+  // 2) totals
+  s+='\n\nTOTALS\n';
+  s+=b.phase==='ready'?'Bell: not locked off\n':`Bell run: ${dur(b.run)} (${clock(b.first)} - ${b.phase==='off'?'still locked off':clock(b.last)}), locked on ${b.lockOns}x\n`;
+  for(const d of people()){const c=dcalc(d,now);
+    if(c.phase==='ready'){s+=`${d.name}: did not dive\n`;continue}
+    s+=`${d.name}: in water ${c.stints.length>1?c.stints.map(v=>dur(v)).join(' + ')+' = ':''}${dur(c.water)}`;
+    s+=`, back in bell ${dur(c.bellT)}${c.phase==='done'?'':' (dive not finished)'}\n`}
   return s.trim()}
 function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);fired.clear();acked.clear();save();render()}
 function renderSettings(){const s=S(),f=document.getElementById('setform');if(f.contains(document.activeElement))return;
