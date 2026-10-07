@@ -303,7 +303,7 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
       sub=`finished ${clock(c.end)} · in water from ${clock(c.first)} · breaks ${c.breaks}`;foot='<span class="ft">Dive finished · hold for details</span>'}
     else if(c.phase==='water'){const rem=c.primary.target-now,s=sev(rem);cls='sev-'+s;chip='In water '+clock(d0.ev.at(-1).t);
       lab=rem>0?c.primary.label+' in':c.primary.label+' overdue';big=(rem>0?'':'+')+dur(rem,1);
-      x=[['Break due',clock(c.breakDue)],['Due back',clock(c.dueBack)]]}
+      x=[['Break due at',clock(c.breakDue)],['Due back',clock(c.dueBack)]]}
     else{cls=c.visitOk?'sev-green':'sev-wait';chip='In bell '+clock(c.visitStart);lab=c.visitOk?'In bell · counts as break':'In bell';big=dur(c.visit,1);
       x=c.visitOk?[['Due back',clock(c.dueBack)]]:[['Break at',clock(c.visitStart+S().minBreak*MIN)],['Due back',clock(c.dueBack)]]}}
   const pressing=el.classList.contains('pressing')?' pressing':'';
