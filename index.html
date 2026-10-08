@@ -475,7 +475,9 @@ document.addEventListener('click',async e=>{
   if(act==='save'){if(b.classList.contains('okflash'))return;if(!state.bell.length&&!people().some(d=>d.ev.length)){toast('Nothing to save yet');return}
     // Confirm only while the run is live (bell not finished, or anyone in the water); one press once it is over
     const live=['off','on'].includes(bcalc(Date.now()).phase)||inWater().length>0;
-    if(live&&!confirm2(b,'Confirm'))return;state.history.unshift({at:Date.now(),text:runText()});state.history=state.history.slice(0,30);resetRun();
+    if(live&&!confirm2(b,'Confirm'))return;state.history.unshift({at:Date.now(),text:runText()});state.history=state.history.slice(0,30);
+    {const n=parseInt(state.info.dive,10);if(/^\s*\d+\s*$/.test(state.info.dive||''))state.info.dive=String(n+4)}
+    resetRun();
     b.classList.add('okflash');b.textContent='Saved and reset';
     setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
     setTimeout(()=>{b.innerHTML='Save run &amp; reset';b.classList.remove('okfade')},1800);return}
@@ -524,7 +526,7 @@ function runText(){const now=Date.now(),b=bcalc(now),day=new Date(state.bell[0]?
     s+=`${d.name}: in water ${c.stints.length>1?c.stints.map(v=>dur(v)).join(' + ')+' = ':''}${dur(c.water)}`;
     s+=`, back in bell ${dur(c.bellT)}${c.phase==='done'?'':' (dive not finished)'}\n`}
   return s.trim()}
-function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);state.info.dive='';state.info.depth='';fired.clear();acked.clear();save();render()}
+function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);fired.clear();acked.clear();save();render()}
 function renderSettings(){const s=S(),f=document.getElementById('setform');if(f.contains(document.activeElement))return;
   const t=(k,l)=>`<label for="s-${k}">${l}</label><input type="text" inputmode="numeric" id="s-${k}" data-set="${k}" data-kind="hm" value="${hm(s[k])}">`;
   const n=(k,l)=>`<label for="s-${k}">${l}</label><input type="number" min="1" max="120" id="s-${k}" data-set="${k}" data-kind="n" value="${s[k]}">`;
