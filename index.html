@@ -33,6 +33,11 @@
   font-family:var(--f-display);font-weight:600;font-size:1.25rem;color:var(--fg);font-variant-numeric:tabular-nums}
 .fld input::placeholder{color:var(--muted);opacity:.7}
 .fld.num input{text-align:center}
+
+/* name box on Ready tiles */
+.t-person{flex:1 1 8em;min-width:0;min-height:40px;align-self:center;background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:4px 10px;
+  font-family:var(--f-display);font-weight:700;font-size:1.3rem;letter-spacing:.03em;color:var(--fg)}
+.t-person::placeholder{color:var(--muted);font-weight:600;opacity:.8}
 </style>
 <title>Dive Times</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -249,6 +254,7 @@ if(!state){state=JSON.parse(JSON.stringify(DEF));
     (o.divers||[]).forEach(od=>{const d=state.divers.find(x=>x.id===od.id);if(d&&od.name)d.name=od.name})}}catch(e){}}
 state.settings={...DEF.settings,...state.settings};
 state.info={...DEF.info,...(state.info||{})};
+state.divers.forEach(d=>{if(typeof d.person!=='string')d.person=''});
 // every stamp is a whole minute, so totals always equal the difference of the times shown (no seconds hidden in the maths)
 const nowMin=()=>Math.floor(Date.now()/60000)*60000;
 [state.bell,...state.divers.map(d=>d.ev)].forEach(l=>l.forEach(e=>{e.t=Math.floor(e.t/60000)*60000}));
@@ -330,7 +336,7 @@ document.getElementById('undobtn').addEventListener('click',()=>{if(!undoInfo)re
 /* ---------- tiles ---------- */
 function renderTiles(){const list=[{id:'bell'},...people()];
   document.getElementById('tiles').innerHTML=list.map(p=>`<div class="tile" data-tile="${p.id}" role="button" tabindex="0">
-    <div class="t-top"><div class="t-title"><span class="t-name">${esc(nameOf(p.id))}</span><span class="chip" data-k="chip"></span></div><button class="more" data-act="detail" data-who="${p.id}" aria-label="Details for ${esc(nameOf(p.id))}">›</button></div>
+    <div class="t-top"><div class="t-title"><span class="t-name">${esc(nameOf(p.id))}</span><span class="chip" data-k="chip"></span>${p.id==='bell'?'':`<input class="t-person" type="text" data-person="${p.id}" value="${esc(p.person||'')}" placeholder="Name" autocomplete="off" autocapitalize="words" aria-label="${esc(nameOf(p.id))} name" hidden>`}</div><button class="more" data-act="detail" data-who="${p.id}" aria-label="Details for ${esc(nameOf(p.id))}">›</button></div>
     <div class="t-row"><div class="t-cell"><div class="t-lab" data-k="lab"></div><div class="t-big" data-k="big"></div></div><div class="t-x" data-k="x"></div></div><div class="t-sub" data-k="sub"></div>
     <div class="t-foot" data-k="foot"></div></div>`).join('')}
 function put(root,k,html){const el=root.querySelector(`[data-k="${k}"]`);if(el&&el.innerHTML!==html)el.innerHTML=html}
@@ -348,7 +354,8 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
     else{chip='Locked on '+clock(c.last);lab='Total bell run';big=dur(c.run);x=[['Due back',clock(c.due)],['Locked on',c.lockOns+'×']]}}
   else{const d0=state.divers.find(d=>d.id===who),c=dcalc(d0,now);
     if(c.phase!=='ready'&&c.phase!=='done')foot+=`<button class="finbtn" data-act="finish" data-who="${who}">Finish dive</button>`;
-    if(c.phase==='ready'){chip='Ready';lab='Not in water';big='–:––'}
+    {const pi=el.querySelector('.t-person');if(pi&&pi.hidden!==(c.phase!=='ready'))pi.hidden=c.phase!=='ready'}
+    if(c.phase==='ready'){chip='';lab='Not in water';big='–:––'}
     else if(c.phase==='done'){cls='sev-done';chip='Finished '+clock(c.end);lab='Total in water';big=dur(c.water);
       sub=`finished ${clock(c.end)} · in water from ${clock(c.first)} · breaks ${c.breaks}`;foot='<span class="ft">Dive finished · hold for details</span>'}
     else if(c.phase==='water'){const rem=c.primary.target-now,s=sev(rem);cls='sev-'+s;chip='In water '+clock(d0.ev.at(-1).t);
@@ -443,7 +450,7 @@ function ring(level){setTimeout(()=>notify(level),50);const n={info:1,warn:2,cri
 /* ---------- tap vs hold ---------- */
 let holdT=null,held=false,sx=0,sy=0,pressEl=null;
 function endPress(){clearTimeout(holdT);holdT=null;if(pressEl)pressEl.classList.remove('pressing');pressEl=null}
-document.addEventListener('pointerdown',e=>{const t=e.target.closest('.tile');if(!t||e.target.closest('.more,.finbtn'))return;
+document.addEventListener('pointerdown',e=>{const t=e.target.closest('.tile');if(!t||e.target.closest('.more,.finbtn,input'))return;
   held=false;sx=e.clientX;sy=e.clientY;pressEl=t;t.classList.add('pressing');
   holdT=setTimeout(()=>{held=true;const who=t.dataset.tile;endPress();try{navigator.vibrate&&navigator.vibrate([30,40,30])}catch(e){}openDetail(who)},600)});
 document.addEventListener('pointermove',e=>{if(holdT&&(Math.abs(e.clientX-sx)>12||Math.abs(e.clientY-sy)>12))endPress()},{passive:true});
@@ -462,7 +469,7 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hid
 
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');
-  if(!b){const t=e.target.closest('.tile');if(t){if(held){held=false;return}stamp(t.dataset.tile)}return}
+  if(!b){if(e.target.closest('input'))return;const t=e.target.closest('.tile');if(t){if(held){held=false;return}stamp(t.dataset.tile)}return}
   const act=b.dataset.act;
   if(act==='detail'){openDetail(b.dataset.who);return}
   if(act==='finish'){finish(b.dataset.who);return}
@@ -477,6 +484,7 @@ document.addEventListener('click',async e=>{
     const live=['off','on'].includes(bcalc(Date.now()).phase)||inWater().length>0;
     if(live&&!confirm2(b,'Confirm'))return;state.history.unshift({at:Date.now(),text:runText()});state.history=state.history.slice(0,30);
     {const n=parseInt(state.info.dive,10);if(/^\s*\d+\s*$/.test(state.info.dive||''))state.info.dive=String(n+4)}
+    {const ps=people(),names=ps.map(d=>d.person);ps.forEach((d,i)=>{d.person=names[(i+1)%names.length]})}
     resetRun();
     b.classList.add('okflash');b.textContent='Saved and reset';
     setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
@@ -516,14 +524,16 @@ function runText(){const now=Date.now(),b=bcalc(now),day=new Date(state.bell[0]?
       ev.push({t:e.t,o:100+i,txt})})}
   ev.sort((a,b)=>a.t-b.t||a.o-b.o);
   const I=state.info;let s=`DIVE TIMES ${day}\n`;
-  s+=`Location: ${I.loc||'-'}\nDive no.: ${I.dive||'-'}\nDepth: ${I.depth?I.depth+' msw':'-'}\n\nSEQUENCE OF EVENTS\n`;
+  s+=`Location: ${I.loc||'-'}\nDive no.: ${I.dive||'-'}\nDepth: ${I.depth?I.depth+' msw':'-'}\n`;
+  s+='Team: '+people().map(d=>`${d.name} ${d.person||'-'}`).join(', ')+'\n\nSEQUENCE OF EVENTS\n';
   s+=ev.length?ev.map(e=>`${clock(e.t)}  ${e.txt}`).join('\n'):'No times recorded';
   // 2) totals
   s+='\n\nTOTALS\n';
   s+=b.phase==='ready'?'Bell: not locked off\n':`Bell run: ${dur(b.run)} (${clock(b.first)} - ${b.phase==='off'?'still locked off':clock(b.last)}), locked on ${b.lockOns}x\n`;
   for(const d of people()){const c=dcalc(d,now);
-    if(c.phase==='ready'){s+=`${d.name}: did not dive\n`;continue}
-    s+=`${d.name}: in water ${c.stints.length>1?c.stints.map(v=>dur(v)).join(' + ')+' = ':''}${dur(c.water)}`;
+    const who=d.name+(d.person?` (${d.person})`:'');
+    if(c.phase==='ready'){s+=`${who}: did not dive\n`;continue}
+    s+=`${who}: in water ${c.stints.length>1?c.stints.map(v=>dur(v)).join(' + ')+' = ':''}${dur(c.water)}`;
     s+=`, back in bell ${dur(c.bellT)}${c.phase==='done'?'':' (dive not finished)'}\n`}
   return s.trim()}
 function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);fired.clear();acked.clear();save();render()}
@@ -544,7 +554,8 @@ function renderHist(){const h=document.getElementById('hist');
   :'<p class="hint">No saved runs yet. When a bell run is finished, tap Save run &amp; reset.</p>'}
 
 function renderInfo(){document.querySelectorAll('[data-info]').forEach(el=>{if(el!==document.activeElement)el.value=state.info[el.dataset.info]||''})}
-document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.info;if(k){state.info[k]=e.target.value.trim();save()}});
+document.addEventListener('input',e=>{const pid=e.target.dataset&&e.target.dataset.person;if(pid){state.divers.find(d=>d.id===pid).person=e.target.value.trim();save();return}
+  const k=e.target.dataset&&e.target.dataset.info;if(k){state.info[k]=e.target.value.trim();save()}});
 function render(){renderInfo();renderTiles();renderSettings();renderHist();if(openWho&&openWho!=='bell'&&!people().some(d=>d.id===openWho))closeDetail();tick()}
 
 let wl=null,wantWake=false;try{wantWake=localStorage.getItem('diveTimes.wake')==='1'}catch(e){}const wb=document.getElementById('wake');
