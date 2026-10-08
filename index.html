@@ -23,6 +23,16 @@
 .finbtn.blocked,.act.fin.blocked,.tapbtn.blocked{box-shadow:none;background-image:none}
 @media (prefers-reduced-motion:reduce){.finbtn,.act,.t-foot .ft.tapbtn,.more,.chipbtn,.back,#undo button{transition:none}}
 
+
+/* run info bar: location, dive number, depth */
+.info{display:grid;grid-template-columns:minmax(0,1fr) 4.4em 5.4em;gap:8px}
+.fld.num span{white-space:nowrap;text-align:center}
+.fld{display:grid;gap:3px;min-width:0}
+.fld span{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fld input{width:100%;min-width:0;min-height:44px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;
+  font-family:var(--f-display);font-weight:600;font-size:1.25rem;color:var(--fg);font-variant-numeric:tabular-nums}
+.fld input::placeholder{color:var(--muted);opacity:.7}
+.fld.num input{text-align:center}
 </style>
 <title>Dive Times</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -197,6 +207,11 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
 <div id="edge" aria-hidden="true"></div>
 
 <main>
+  <div class="info" id="info">
+    <label class="fld loc"><span>Location</span><input type="text" id="i-loc" data-info="loc" autocomplete="off" placeholder="Site / vessel"></label>
+    <label class="fld num"><span>Dive no.</span><input type="text" id="i-dive" data-info="dive" inputmode="numeric" autocomplete="off" placeholder="–"></label>
+    <label class="fld num"><span>Depth msw</span><input type="text" id="i-depth" data-info="depth" inputmode="decimal" autocomplete="off" placeholder="–"></label>
+  </div>
   <div id="tiles"></div>
   <p class="hint">Tap a tile to stamp the time shown at its foot. Hold a tile, or tap ›, for full times and to correct them.</p>
 
@@ -225,7 +240,7 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
 
 <script>
 const KEY='diveTimes.v2',OLD='diveTimes.v1',MIN=60000;
-const DEF={settings:{bell:480,breakDue:240,minBreak:15,maxWater:360,warn:30,crit:10,diver3:false,bellman:false},
+const DEF={info:{loc:'',dive:'',depth:''},settings:{bell:480,breakDue:240,minBreak:15,maxWater:360,warn:30,crit:10,diver3:false,bellman:false},
   bell:[],divers:[{id:'d1',name:'Diver 1',ev:[]},{id:'d2',name:'Diver 2',ev:[]},{id:'d3',name:'Diver 3',ev:[]},{id:'bm',name:'Bellman',ev:[]}],history:[]};
 let state=null;
 try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.bell))state=s}catch(e){}
@@ -233,6 +248,7 @@ if(!state){state=JSON.parse(JSON.stringify(DEF));
   try{const o=JSON.parse(localStorage.getItem(OLD));if(o){Object.assign(state.settings,o.settings||{});state.history=o.history||[];
     (o.divers||[]).forEach(od=>{const d=state.divers.find(x=>x.id===od.id);if(d&&od.name)d.name=od.name})}}catch(e){}}
 state.settings={...DEF.settings,...state.settings};
+state.info={...DEF.info,...(state.info||{})};
 // every stamp is a whole minute, so totals always equal the difference of the times shown (no seconds hidden in the maths)
 const nowMin=()=>Math.floor(Date.now()/60000)*60000;
 [state.bell,...state.divers.map(d=>d.ev)].forEach(l=>l.forEach(e=>{e.t=Math.floor(e.t/60000)*60000}));
@@ -497,7 +513,8 @@ function runText(){const now=Date.now(),b=bcalc(now),day=new Date(state.bell[0]?
       else{const g=c.segs[i-1];txt=`${d.name} in water (${g.isBreak?'after '+dur(g.len)+' break':dur(g.len)+' in bell, not a break'})`}
       ev.push({t:e.t,o:100+i,txt})})}
   ev.sort((a,b)=>a.t-b.t||a.o-b.o);
-  let s=`DIVE TIMES ${day}\n\nSEQUENCE OF EVENTS\n`;
+  const I=state.info;let s=`DIVE TIMES ${day}\n`;
+  s+=`Location: ${I.loc||'-'}\nDive no.: ${I.dive||'-'}\nDepth: ${I.depth?I.depth+' msw':'-'}\n\nSEQUENCE OF EVENTS\n`;
   s+=ev.length?ev.map(e=>`${clock(e.t)}  ${e.txt}`).join('\n'):'No times recorded';
   // 2) totals
   s+='\n\nTOTALS\n';
@@ -507,7 +524,7 @@ function runText(){const now=Date.now(),b=bcalc(now),day=new Date(state.bell[0]?
     s+=`${d.name}: in water ${c.stints.length>1?c.stints.map(v=>dur(v)).join(' + ')+' = ':''}${dur(c.water)}`;
     s+=`, back in bell ${dur(c.bellT)}${c.phase==='done'?'':' (dive not finished)'}\n`}
   return s.trim()}
-function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);fired.clear();acked.clear();save();render()}
+function resetRun(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.bell=[];state.divers.forEach(d=>d.ev=[]);state.info.dive='';state.info.depth='';fired.clear();acked.clear();save();render()}
 function renderSettings(){const s=S(),f=document.getElementById('setform');if(f.contains(document.activeElement))return;
   const t=(k,l)=>`<label for="s-${k}">${l}</label><input type="text" inputmode="numeric" id="s-${k}" data-set="${k}" data-kind="hm" value="${hm(s[k])}">`;
   const n=(k,l)=>`<label for="s-${k}">${l}</label><input type="number" min="1" max="120" id="s-${k}" data-set="${k}" data-kind="n" value="${s[k]}">`;
@@ -524,7 +541,9 @@ function renderHist(){const h=document.getElementById('hist');
     <div class="ra" id="sh${i}" hidden><a class="chipbtn" href="https://wa.me/?text=${enc}" target="_blank" rel="noopener">WhatsApp</a><a class="chipbtn" href="https://mail.google.com/mail/?view=cm&amp;su=${subj}&amp;body=${enc}" target="_blank" rel="noopener">Gmail</a></div></div>`}).join('')
   :'<p class="hint">No saved runs yet. When a bell run is finished, tap Save run &amp; reset.</p>'}
 
-function render(){renderTiles();renderSettings();renderHist();if(openWho&&openWho!=='bell'&&!people().some(d=>d.id===openWho))closeDetail();tick()}
+function renderInfo(){document.querySelectorAll('[data-info]').forEach(el=>{if(el!==document.activeElement)el.value=state.info[el.dataset.info]||''})}
+document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.info;if(k){state.info[k]=e.target.value.trim();save()}});
+function render(){renderInfo();renderTiles();renderSettings();renderHist();if(openWho&&openWho!=='bell'&&!people().some(d=>d.id===openWho))closeDetail();tick()}
 
 let wl=null,wantWake=false;try{wantWake=localStorage.getItem('diveTimes.wake')==='1'}catch(e){}const wb=document.getElementById('wake');
 async function getWake(){try{wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null;wb.setAttribute('aria-pressed','false')});wb.setAttribute('aria-pressed','true')}
