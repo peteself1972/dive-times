@@ -523,10 +523,12 @@ function runText(){const now=Date.now(),b=bcalc(now),day=new Date(state.bell[0]?
       else{const g=c.segs[i-1];txt=`${d.name} in water (${g.isBreak?'after '+dur(g.len)+' break':dur(g.len)+' in bell, not a break'})`}
       ev.push({t:e.t,o:100+i,txt})})}
   ev.sort((a,b)=>a.t-b.t||a.o-b.o);
-  const I=state.info;let s=`DIVE TIMES ${day}\n`;
+  const I=state.info,dfmt=t=>new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  let s=`DIVE TIMES\nDate: ${dfmt(state.bell[0]?.t||now)}\n`;
   s+=`Location: ${I.loc||'-'}\nDive no.: ${I.dive||'-'}\nDepth: ${I.depth?I.depth+' msw':'-'}\n`;
   s+='Team: '+people().map(d=>`${d.name} ${d.person||'-'}`).join(', ')+'\n\nSEQUENCE OF EVENTS\n';
-  s+=ev.length?ev.map(e=>`${clock(e.t)}  ${e.txt}`).join('\n'):'No times recorded';
+  let lastDay=ev.length?new Date(ev[0].t).toDateString():'';
+  s+=ev.length?ev.map(e=>{const d=new Date(e.t).toDateString(),mark=d!==lastDay?`--- ${dfmt(e.t)} ---\n`:'';lastDay=d;return mark+`${clock(e.t)}  ${e.txt}`}).join('\n'):'No times recorded';
   // 2) totals
   s+='\n\nTOTALS\n';
   s+=b.phase==='ready'?'Bell: not locked off\n':`Bell run: ${dur(b.run)} (${clock(b.first)} - ${b.phase==='off'?'still locked off':clock(b.last)}), locked on ${b.lockOns}x\n`;
