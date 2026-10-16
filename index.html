@@ -383,6 +383,7 @@ function renderDetail(){if(!openWho)return;const who=openWho,ev=evOf(who);
   document.getElementById('detail').innerHTML=`<div class="dwrap">
     <div class="dhead"><button class="back" data-act="close">‹ Back</button><h2>${esc(nameOf(who))}</h2></div>
     <div class="box"><dl>${figs}</dl></div>
+    ${window.DP?DP.detailBox(who):''}
     <div class="box"><h3>Times · tap a time to correct it</h3><dl>${rows}</dl></div>
     <div class="actions">${done?'':`<button class="act" data-act="dstamp">Stamp now: ${LABEL[nextType(who)]}</button>`}
     ${ev.length&&!done?`<button class="act fin${who==='bell'&&unfinished().length?' blocked':''}" data-act="dfinish">Finish ${finWord(who)}</button>`:''}
@@ -431,6 +432,9 @@ function tick(){const now=Date.now();document.getElementById('clock').textConten
     edge=Math.max(edge,s==='over'&&acked.has(key)?2:RANK[s]);
     const txt=s==='over'?`${a.label} overdue by ${dur(rem)}`:`${a.label} in ${dur(rem)} (${clock(a.target)})`;
     html+=`<div class="alert ${s}"><span data-act="detail" data-who="${a.who}">${esc(nameOf(a.who))}: ${txt}</span>${s==='over'&&!acked.has(key)?`<button data-act="ack" data-key="${key}">Silence</button>`:''}</div>`}
+  // dive plan: bell gas readings below minimum (rings once per new reading)
+  if(window.DP){for(const t of DP.alerts()){const key='gas|'+t;if(!fired.has(key)){fired.add(key);ring('warn')}edge=Math.max(edge,1);
+    html+=`<div class="alert warn"><span data-act="plan">${esc(t)}</span></div>`}}
   const al=document.getElementById('alerts');if(al.innerHTML!==html)al.innerHTML=html;
   const eg=document.getElementById('edge'),ec=['','warn','crit','over'][edge];if(eg.className!==ec)eg.className=ec;
   document.documentElement.style.setProperty('--barh',document.getElementById('bar').offsetHeight+'px')}
@@ -472,6 +476,7 @@ document.addEventListener('click',async e=>{
   if(!b){if(e.target.closest('input'))return;const t=e.target.closest('.tile');if(t){if(held){held=false;return}stamp(t.dataset.tile)}return}
   const act=b.dataset.act;
   if(act==='detail'){openDetail(b.dataset.who);return}
+  if(act==='plan'){if(window.DP)DP.open('plan');return}
   if(act==='finish'){finish(b.dataset.who);return}
   if(act==='dfinish'){finish(openWho);renderDetail();return}
   if(act==='dreopen'){if(!confirm2(b,'Tap again to reopen'))return;delete evOf(openWho).at(-1).fin;save();render();renderDetail();toast(openWho==='bell'?'Bell run reopened: bell is locked on':'Dive reopened: diver is in the bell');return}
@@ -575,6 +580,7 @@ if('serviceWorker'in navigator){const hadSW=!!navigator.serviceWorker.controller
 
 render();setInterval(tick,1000);
 </script>
+<script src="plan.js"></script>
 
 </body>
 </html>
