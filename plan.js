@@ -84,7 +84,7 @@ function nums(){const r=R(),J=P.job,n=k=>num(J[k]);
     N.cobraWin=lim&&limB?{min:Math.max(lim.min,limB.min),max:Math.min(lim.max,limB.max)}:lim;
     if(d!=null){const m=cobraMinPress(d,N.need||0);N.cobraMin=m==null?null:Math.max(m,bo.cobraFloor||0)}}
   const bovol=n('bovol'),bop=n('bop');
-  if(d!=null&&has(bovol,bop,bo.rate,bo.regLoss,bo.fillPct)){const f=1-bo.fillPct/100,avail=bop*f-bo.regLoss-Pd;
+  if(bo.type!=='cobra'&&d!=null&&has(bovol,bop,bo.rate,bo.regLoss,bo.fillPct)){const f=1-bo.fillPct/100,avail=bop*f-bo.regLoss-Pd;
     N.std={vol:bovol,fill:bop,avail,dur:avail>0?avail*bovol/(bo.rate*Pd):0,minP:N.need!=null?(bo.rate*Pd*N.need/bovol+bo.regLoss+Pd)/f:null}}
   // reclaim
   if(Pb)N.rec={abs:Pb,bpr:Pb-1,psi:(Pb-1)*14.5,suc:has(r.reclaim.suction)?r.reclaim.suction:null};
@@ -184,7 +184,7 @@ function planHtml(){const r=R();
     <label for="pj-name">Job / vessel</label><input id="pj-name" class="wide" data-pj="name" value="${esc(J.name)}" autocomplete="off">
     ${field('diver','Divers max depth')}${field('dmin','Divers min depth','msw','if shallower')}${field('bell','Bell depth')}${field('storage','Storage')}
     ${field('sm','S/M (short mark)')}${field('off','Clump below bell','m')}${field('structure','Structure (top)')}${field('seabed','Seabed')}
-    ${field('umb','Max excursion umbilical','m')}${field('bovol','Bailout floodable vol','L')}${field('bop','Bailout fill pressure','bar')}</div>
+    ${field('umb','Max excursion umbilical','m')}${field('bovol','Bailout floodable vol','L')}${r.bailout.type==='cobra'?'':field('bop','Bailout fill pressure','bar')}</div>
     <p class="hint">Bell depth fills the Depth box on the main screen. Job fills Location if it is empty.</p></div>
    <div class="box"><h3>Bell gas</h3><div class="set">
     ${J.banks.map((bk,i)=>`<label for="pb-${i}v">${esc(bk.name||'Bank '+(i+1))} volume <span class="hint" style="display:inline">L</span></label><input id="pb-${i}v" data-pb="${i}.v" inputmode="decimal" value="${esc(bk.v)}">`).join('')}
