@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1216" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#e9eef0" media="(prefers-color-scheme: light)">
-<meta name="description" content="Bell run and diver in-water timer with alarms">
+<meta name="description" content="Commercial dive timer, pre-dive checklist, gas calculator and log">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png" type="image/png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -39,7 +39,7 @@
   font-family:var(--f-display);font-weight:700;font-size:1.3rem;letter-spacing:.03em;color:var(--fg)}
 .t-person::placeholder{color:var(--muted);font-weight:600;opacity:.8}
 </style>
-<title>Dive Times</title>
+<title>OnPanel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
@@ -202,7 +202,7 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
 
 <div class="bar" id="bar">
   <div class="barrow">
-    <h1>Dive Times</h1>
+    <h1>OnPanel</h1>
     <span class="clock" id="clock">--:--</span>
     <button class="chipbtn" id="wake" aria-pressed="false">Screen on</button>
     <button class="chipbtn" id="test">Test alarm</button>
@@ -445,8 +445,8 @@ document.addEventListener('pointerdown',unlock,{passive:true});
 function tone(f,t,d){const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.0001,t);
   g.gain.exponentialRampToValueAtTime(.25,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+d);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+d+.02)}
 function notify(level){try{if(!document.hidden||!('Notification'in window)||Notification.permission!=='granted'||!navigator.serviceWorker)return;
-  const msg=[...document.querySelectorAll('#alerts .alert span')].map(x=>x.textContent).join('\n')||'Check Dive Times';
-  navigator.serviceWorker.ready.then(r=>r.showNotification('Dive Times: '+({info:'Info',warn:'Warning',crit:'Warning',over:'OVERDUE'}[level]),{body:msg,tag:'dive-'+level,renotify:true,requireInteraction:level==='over',vibrate:[300,120,300,120,300]}))}catch(e){}}
+  const msg=[...document.querySelectorAll('#alerts .alert span')].map(x=>x.textContent).join('\n')||'Check OnPanel';
+  navigator.serviceWorker.ready.then(r=>r.showNotification('OnPanel: '+({info:'Info',warn:'Warning',crit:'Warning',over:'OVERDUE'}[level]),{body:msg,tag:'dive-'+level,renotify:true,requireInteraction:level==='over',vibrate:[300,120,300,120,300]}))}catch(e){}}
 function ring(level){setTimeout(()=>notify(level),50);const n={info:1,warn:2,crit:3,over:5}[level],f={info:660,warn:880,crit:1175,over:1320}[level];
   if(ac){const t=ac.currentTime+.02;for(let i=0;i<n;i++)tone(f,t+i*.28,.18)}
   try{navigator.vibrate&&navigator.vibrate(Array.from({length:n*2-1},(_,i)=>i%2?120:260))}catch(e){}}

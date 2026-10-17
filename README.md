@@ -1,6 +1,8 @@
-# Dive Times
+# OnPanel
 
-A phone app for tracking a saturation bell run and each diver's in-water, bell and break times, with countdowns and alarms.
+**Commercial dive timer, pre-dive checklist, gas calculator and log.** Built by a supervisor, for supervisors.
+
+Tracks a saturation bell run and each diver's in-water, bell and break times, with countdowns and alarms.
 
 **Open the app:** https://peteself1972.github.io/dive-times/
 

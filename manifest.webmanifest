@@ -1,7 +1,7 @@
 {
-  "name": "Dive Times",
-  "short_name": "Dive Times",
-  "description": "Bell run and diver in-water timer with alarms",
+  "name": "OnPanel",
+  "short_name": "OnPanel",
+  "description": "Commercial dive timer, pre-dive checklist, gas calculator and log",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

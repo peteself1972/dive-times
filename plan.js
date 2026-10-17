@@ -1,4 +1,4 @@
-/* Dive Times: Dive plan.
+/* OnPanel: Dive plan.
    Pre-dive planning (gas card, depth sketch, checks, bailout, OBG and O2 minimums, Drager tubes, PDF)
    driven by a company RULES PROFILE that the user loads or types in on the phone.
    No company's rules ship with the app: profiles live in this phone's storage only.
@@ -286,8 +286,8 @@ function loadTable(k,txt){const r=R(),rows=parseRows(txt);if(!rows.length)return
 /* ---------- import / export ---------- */
 function addProfile(p){p=normProfile(p);let id=(p.name||'Profile').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'profile';
   let n=id,i=2;while(P.profiles[n])n=id+'-'+(i++);P.profiles[n]=p;P.active=n;psave();return n}
-function importText(txt){let p;try{p=JSON.parse(txt)}catch(e){toast('That file is not a Dive Times profile');return}
-  if(!p||p.v!==1||!p.pp||!p.tables){toast('That file is not a Dive Times profile');return}addProfile(p);paint();toast('Loaded: '+(p.name||'profile'))}
+function importText(txt){let p;try{p=JSON.parse(txt)}catch(e){toast('That file is not an OnPanel profile');return}
+  if(!p||p.v!==1||!p.pp||!p.tables){toast('That file is not an OnPanel profile');return}addProfile(p);paint();toast('Loaded: '+(p.name||'profile'))}
 async function exportProfile(){const r=R();if(!r)return;const name=(r.name||'profile').replace(/[^\w\- ]+/g,'')+'.divetimes-rules.json';
   const blob=new Blob([JSON.stringify(r,null,1)],{type:'application/json'});const file=new File([blob],name,{type:'application/json'});
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:r.name});return}}catch(e){if(e&&e.name==='AbortError')return}
