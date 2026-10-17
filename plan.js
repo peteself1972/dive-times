@@ -1,5 +1,5 @@
 /* OnPanel: Dive plan.
-   Pre-dive planning (gas card, depth sketch, checks, bailout, OBG and O2 minimums, Drager tubes, PDF)
+   Pre-dive planning (dive information card, depth sketch, checks, bailout, OBG and O2 minimums, Drager tubes, PDF)
    driven by a company RULES PROFILE that the user loads or types in on the phone.
    No company's rules ship with the app: profiles live in this phone's storage only.
    Loaded after the main script; uses its globals (state, save, render, esc, clock, toast, ring, fired). */
@@ -163,7 +163,15 @@ const css=document.createElement('style');css.textContent=`
 .pl-k.low b{color:var(--crit)}
 #plan textarea{width:100%;min-height:110px;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:.85rem;color:var(--fg)}
 .pl-warnbox{border:2px solid var(--warn);border-radius:10px;padding:10px 12px;color:var(--fg)}
-.pl-warnbox b{color:var(--warn)}`;
+.pl-warnbox b{color:var(--warn)}
+#cardview{position:fixed;inset:0;z-index:5;background:var(--bg);display:flex;flex-direction:column;padding-top:var(--barh,64px)}
+#cardview .cvbar{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line)}
+#cardview .cvbar b{flex:1;font-family:var(--f-display);text-transform:uppercase;letter-spacing:.05em}
+#cardview .cvbody{position:relative;flex:1;overflow:auto;padding:12px 16px calc(24px + env(safe-area-inset-bottom,0px));-webkit-overflow-scrolling:touch}
+#cardview canvas{display:block;width:100%;height:auto;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
+#cardview.zoom canvas{width:250%;max-width:none}
+#cardview .hint{text-align:center;margin-top:8px}
+#plancard summary .cvq{margin-left:auto;margin-right:12px;font-family:var(--f-body);text-transform:none;letter-spacing:0;font-size:.85rem}`;
 document.head.appendChild(css);
 
 function open(v){view=v||'plan';paint();sec.hidden=false;sec.scrollTop=0;document.body.style.overflow='hidden'}
@@ -203,7 +211,7 @@ function paintOut(){const el=sec.querySelector('#pl-out');if(!el)return;const N=
     :`<div><span class="lbl">Bailout min</span></div><div style="justify-content:flex-end">${N.std&&N.std.minP!=null?Math.ceil(N.std.minP)+' bar':'–'}</div>`;
   const win=N.obg?(N.obg.maxDrop!=null?Math.min(N.obg.max,N.obg.maxDrop):N.obg.max):null;
   const bEx=`<div><span class="lbl">OBG O2 min</span></div><div style="justify-content:flex-end">${N.obg?N.obg.min+' %':'–'}</div><div><span class="lbl">OBG window</span></div><div style="justify-content:flex-end">${N.obg?N.obg.min+'–'+win+' %':'–'}</div>`;
-  h+=`<div class="box" style="padding:10px"><h3>Gas card${P.job.name?' · '+esc(P.job.name):''}</h3>
+  h+=`<div class="box" style="padding:10px"><h3>Dive information card${P.job.name?' · '+esc(P.job.name):''}</h3>
     <div class="pl-two"><div class="pl-grid">${col('DIVERS',N.d,N.dv||[],N.dco2,dEx)}</div><div class="pl-grid">${col('BELL',N.b,N.bl||[],N.bco2,bEx)}</div></div>
     <p class="hint" style="margin-top:8px">O2 % = ppO2 ÷ absolute pressure (depth ÷ 10 + 1). CO2 max = ${has(r.co2.mbar)?r.co2.mbar+' mbar':'limit'} ÷ absolute pressure.${ref('pp')}</p></div>`;
   // bailout
@@ -224,7 +232,7 @@ function paintOut(){const el=sec.querySelector('#pl-out');if(!el)return;const N=
   const ck=checks(N);
   h+=`<div class="box" style="padding:10px"><h3>Checks</h3><div class="pl-chk">${ck.length?ck.map(([l,t])=>`<div class="${l}">${esc(t)}</div>`).join(''):'<p class="hint">Enter storage, bell and diver depths.</p>'}</div></div>
    <div class="box" style="padding:10px"><h3>Depth sketch · not to scale</h3>${sketch(N)}</div>
-   <div class="actions"><button class="act" data-pa="pdf">Gas card PDF</button></div>
+   <div class="actions"><button class="act" data-pa="viewcard">View card</button><button class="act ghost" data-pa="pdf">Share PDF</button></div>
    <p class="hint">Backup aid only. Check every figure against your controlling procedures before relying on it.</p>`;
   el.innerHTML=h}
 
@@ -285,13 +293,13 @@ async function exportProfile(){const r=R();if(!r)return;const name=(r.name||'pro
   try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:r.name});return}}catch(e){if(e&&e.name==='AbortError')return}
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
 
-/* ---------- PDF gas card (A4 portrait) ---------- */
+/* ---------- PDF dive information card (A4 portrait) ---------- */
 function loadPdfLib(){return window.jspdf?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='jspdf.umd.min.js';s.onload=res;s.onerror=()=>rej(new Error('PDF tool not available'));document.head.appendChild(s)})}
-async function pdf(btn){try{btn&&(btn.disabled=true);await loadPdfLib();const N=nums(),r=N.r;const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
+async function makeCard(){await loadPdfLib();const N=nums(),r=N.r;const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4',orientation:'portrait'});
   const PW=210,M=15,CW=PW-2*M,BLUE=[26,95,180],RED=[200,0,0],BLK=[0,0,0],GREY=[110,110,110];
   const col=c=>doc.setTextColor(...c),font=(st,sz)=>{doc.setFont('helvetica',st);doc.setFontSize(sz)};
   const sect=(y,t)=>{font('bold',10);col(GREY);doc.text(t.toUpperCase(),M,y);doc.setDrawColor(190,190,190);doc.setLineWidth(.3);doc.line(M,y+1.5,PW-M,y+1.5);col(BLK);doc.setDrawColor(0,0,0)};
-  font('bold',22);col(BLK);doc.text('Gas card',M,22);font('normal',10);col(GREY);
+  font('bold',22);col(BLK);doc.text('Dive information card',M,22);font('normal',10);col(GREY);
   doc.text([P.job.name||null,r.name?'Rules: '+r.name:null,new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})].filter(Boolean).join('   ·   '),M,29);col(BLK);
   doc.setLineWidth(.8);doc.line(M,33,PW-M,33);
   let y=40;sect(y,'Diver and bell gas');y+=4;const ws=CW/4,rh=9.5;
@@ -327,10 +335,31 @@ async function pdf(btn){try{btn&&(btn.disabled=true);await loadPdfLib();const N=
    r.tubes.slice(0,4).forEach((t,i)=>{const x=M+i*cw+2.5,any=t.kind!=='mbar';if(i){doc.setDrawColor(220,220,220);doc.line(M+i*cw,y+8,M+i*cw,y+th-1.5)}font('bold',8.5);col(BLK);doc.text(t.name.slice(0,26),x,y+11);
      font('bold',10);col(any?RED:BLK);doc.text(any?'ANY reading':(t.max/10)+' % max',x,y+16);font('normal',7);col(GREY);doc.text(any?'= contaminated':'scale reading',x,y+20)});col(BLK);doc.setDrawColor(0,0,0);y+=th+4}
   font('normal',7.5);col(GREY);doc.text('Backup aid only. Check every figure against your controlling procedures.',M,y);
-  const name='gas-card'+(P.job.diver?'-divers-'+P.job.diver+'m-bell-'+P.job.bell+'m':'')+'.pdf',blob=doc.output('blob'),file=new File([blob],name,{type:'application/pdf'});
-  try{if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Gas card'});return}}catch(e){if(e&&e.name==='AbortError')return}
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);toast('Gas card saved to Downloads')}
+  const name='dive-info-card'+(P.job.diver?'-divers-'+P.job.diver+'m-bell-'+P.job.bell+'m':'')+'.pdf',blob=doc.output('blob');
+  return{blob,name,file:new File([blob],name,{type:'application/pdf'})}}
+async function shareCard(c){
+  try{if(navigator.canShare&&navigator.canShare({files:[c.file]})){await navigator.share({files:[c.file],title:'Dive information card'});return}}catch(e){if(e&&e.name==='AbortError')return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(c.blob);a.download=c.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},4000);toast('Card saved to Downloads')}
+async function pdf(btn){try{btn&&(btn.disabled=true);await shareCard(await makeCard())}
   catch(e){toast("Couldn't make the PDF: "+(e&&e.message||'error'))}finally{btn&&(btn.disabled=false)}}
+
+/* ---------- on-screen card viewer: the same PDF page, drawn by pdf.js ---------- */
+let pdfjsLib=null,cvCard=null;
+async function loadViewer(){if(!pdfjsLib){pdfjsLib=await import('./pdfjs/pdf.mjs');pdfjsLib.GlobalWorkerOptions.workerSrc=new URL('pdfjs/pdf.worker.mjs',document.baseURI).href}return pdfjsLib}
+const cv=document.createElement('section');cv.id='cardview';cv.hidden=true;cv.setAttribute('role','dialog');cv.setAttribute('aria-modal','true');
+cv.innerHTML='<div class="cvbar"><b>Dive information card</b><button class="chipbtn" data-pa="cvshare">Share PDF</button><button class="chipbtn" data-pa="cvclose">Close</button></div><div class="cvbody"><canvas id="cvcanvas" aria-label="Dive information card"></canvas><p class="hint" id="cvhint">Tap the card to zoom in or out.</p></div>';
+document.body.appendChild(cv);
+async function viewCard(btn){try{btn&&(btn.disabled=true);if(!R()){toast('Load your rules first');return}
+  const c=await makeCard(),lib=await loadViewer();cvCard=c;
+  const doc=await lib.getDocument({data:new Uint8Array(await c.blob.arrayBuffer())}).promise,page=await doc.getPage(1);
+  const base=page.getViewport({scale:1}),dpr=window.devicePixelRatio||1,target=Math.min(2400,Math.round(window.innerWidth*dpr*2.5)),vp=page.getViewport({scale:target/base.width});
+  const can=cv.querySelector('#cvcanvas');can.width=Math.round(vp.width);can.height=Math.round(vp.height);
+  await page.render({canvasContext:can.getContext('2d'),viewport:vp}).promise;doc.destroy();
+  cv.classList.remove('zoom');cv.hidden=false;cv.querySelector('.cvbody').scrollTo(0,0);document.body.style.overflow='hidden'}
+  catch(e){toast("Couldn't show the card: "+(e&&e.message||'error'))}finally{btn&&(btn.disabled=false)}}
+function closeCard(){cv.hidden=true;if(sec.hidden)document.body.style.overflow=''}
+cv.addEventListener('click',e=>{if(e.target.id!=='cvcanvas')return;const body=cv.querySelector('.cvbody'),can=e.target,r=can.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width,fy=(e.clientY-r.top)/r.height;
+  cv.classList.toggle('zoom');if(cv.classList.contains('zoom')){body.scrollLeft=fx*can.offsetWidth-body.clientWidth/2;body.scrollTop=can.offsetTop+fy*can.offsetHeight-body.clientHeight/2}});
 
 /* ---------- link to the main app ---------- */
 function linkMain(){const b=num(P.job.bell);let ch=false;
@@ -340,7 +369,7 @@ function linkMain(){const b=num(P.job.bell);let ch=false;
 
 /* summary card on the main screen */
 const card=document.createElement('details');card.className='card';card.id='plancard';
-card.innerHTML='<summary>Dive plan</summary><div id="plansum"></div><div class="actions"><button class="act" data-pa="open">Open dive plan</button><button class="act ghost" data-pa="openrules">Rules</button></div>';
+card.innerHTML='<summary><span>Dive plan</span><button class="chipbtn cvq" data-pa="viewcard">Info card</button></summary><div id="plansum"></div><div class="actions"><button class="act" data-pa="open">Open dive plan</button><button class="act ghost" data-pa="openrules">Rules</button></div>';
 const anchor=document.getElementById('settings');anchor.parentNode.insertBefore(card,anchor);
 function summary(){const el=document.getElementById('plansum');if(!el)return;const r=R();
   if(!r){el.innerHTML='<p class="hint">No rules loaded yet. Open Rules to load your company profile file.</p>';return}
@@ -366,6 +395,9 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-pa]'
   if(a==='open'){open('plan');return}if(a==='openrules'){open('rules');return}if(a==='close'){close();return}
   if(a==='v-plan'||a==='v-rules'){view=a.slice(2);paint();return}
   if(a==='pdf'){pdf(b);return}
+  if(a==='viewcard'){e.preventDefault();viewCard(b);return}
+  if(a==='cvshare'){if(cvCard)shareCard(cvCard);return}
+  if(a==='cvclose'){closeCard();return}
   if(a==='addbank'){P.job.banks.push({name:'Bank '+(P.job.banks.length+1),v:'',p:''});psave();paint();return}
   if(a==='delbank'){if(!confirm2(b,'Tap again'))return;P.job.banks.pop();psave();paint();return}
   if(a==='import'){sec.querySelector('#pr-file').click();return}

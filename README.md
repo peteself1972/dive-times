@@ -14,8 +14,12 @@ Install on Android: open the link in Chrome, then ⋮ menu → **Add to Home scr
 
 ## Dive plan (branch `dive-plan`)
 
-- **Dive plan** card on the main screen: gas card, bailout, reclaim, OBG and bell O2 minimums, Dräger tubes, checks, depth sketch and an A4 gas card PDF.
+- **Dive plan** card on the main screen: gas limits, bailout, reclaim, OBG and bell O2 minimums, Dräger tubes, checks, depth sketch and an A4 **dive information card**: view it on screen (Info card on the main screen) or share it as a PDF.
 - Runs on a **rules profile** loaded on the phone (Rules › Load profile file) or built in the app. No company's rules are included in this repository.
 - Bell depth fills the Depth box; diver detail shows the bailout figures.
 - Gas shows **minimum pressures only** (COBRA, OBG banks, bell O2). No gauge pressures are entered.
 
+
+## Third-party
+
+- `pdfjs/`: [pdf.js](https://github.com/mozilla/pdf.js) 4.10.38 by Mozilla, Apache 2.0 licence (see `pdfjs/LICENSE`). Used only to show the dive information card on screen.
