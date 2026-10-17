@@ -91,13 +91,10 @@ function nums(){const r=R(),J=P.job,n=k=>num(J[k]);
   // OBG and O2 minimums
   const g=r.obg,deps=[d,b].filter(x=>x!=null);
   if(deps.length&&has(g.minutes,g.rate,g.residual)){const D=Math.max(...deps),Pa=abs(D),need=g.rate*g.minutes*Pa;
-    const rdNew=P.reading&&P.reading.t>(P.job.pTime||0),rd=rdNew&&P.reading.banks||[];
-    N.obgReq={D,P:Pa,need,total:has(g.men)?+(g.men*need/1000).toFixed(1):null,rows:J.banks.map((bk,i)=>{const v=num(bk.v),typed=num(bk.p),rv=num(rd[i]),pr=rv!=null?rv:typed!=null?typed:num(P.reading&&P.reading.banks&&P.reading.banks[i]);
-      const min=v?Math.ceil(need/v+Pa+g.residual):null;return{i,name:bk.name||('Bank '+(i+1)),v,pr,min,low:min!=null&&pr!=null&&pr<min}})};
-    let use=0,miss=0;N.obgReq.rows.forEach(x=>{if(x.pr==null||!x.v)miss++;else use+=Math.max(0,x.pr-Pa-g.residual)*x.v/1000});N.obgReq.use=+use.toFixed(1);N.obgReq.miss=miss}
+    N.obgReq={D,P:Pa,need,total:has(g.men)?+(g.men*need/1000).toFixed(1):null,rows:J.banks.map((bk,i)=>{const v=num(bk.v);
+      const min=v?Math.ceil(need/v+Pa+g.residual):null;return{i,name:bk.name||('Bank '+(i+1)),v,min}})}}
   const q=r.o2,ov=num(J.o2.v);const odep=b!=null?b:d;
-  if(ov&&odep!=null&&has(q.lpm,q.hours,q.men,q.residual)){const typed=num(J.o2.p),ro=num(P.reading&&P.reading.o2),newer=P.reading&&P.reading.t>(J.pTime||0),pr=newer&&ro!=null?ro:typed!=null?typed:ro;
-    const min=Math.ceil(q.men*q.lpm*60*q.hours/ov+abs(odep)+q.residual);N.o2r={v:ov,depth:odep,min,pr,low:pr!=null&&pr<min}}
+  if(ov&&odep!=null&&has(q.lpm,q.hours,q.men,q.residual)){const min=Math.ceil(q.men*q.lpm*60*q.hours/ov+abs(odep)+q.residual);N.o2r={v:ov,depth:odep,min}}
   return N}
 
 /* ---------- checks ---------- */
@@ -117,8 +114,6 @@ function checks(N){const r=N.r,out=[];if(!r)return out;const{d,b,st,cl,str,sb,B}
   if(d!=null&&has(e.diveMin,e.diveMax)&&(d<e.diveMin||d>e.diveMax))out.push(['bad',`Diving depth outside the ${e.diveMin} to ${e.diveMax} msw envelope${ref('envelope')}`]);
   if(st!=null&&has(e.storMin,e.storMax)&&(st<e.storMin||st>e.storMax))out.push(['bad',`Storage outside the ${e.storMin} to ${e.storMax} msw envelope${ref('envelope')}`]);
   if(d!=null&&has(e.heatFrom)&&d>=e.heatFrom)out.push(['warn',`${e.heatFrom} msw or deeper: diver gas heating required${ref('envelope')}`]);
-  if(N.o2r){const o=N.o2r;out.push([o.pr==null?'warn':o.low?'bad':'ok',o.pr==null?`Bell O2: reserve minimum ${o.min} bar. No pressure yet.`:`Bell O2 ${o.pr} bar ${o.low?'is BELOW':'is above'} the ${o.min} bar reserve${o.low?': abort the bell run':''}.${ref('o2')}`])}
-  if(N.obgReq)N.obgReq.rows.forEach(x=>{if(x.min==null)return;out.push([x.pr==null?'warn':x.low?'bad':'ok',x.pr==null?`${x.name}: minimum ${x.min} bar. No pressure yet.`:`${x.name} ${x.pr} bar ${x.low?'is BELOW':'meets'} the ${x.min} bar minimum.${ref('obg')}`])});
   return out}
 
 /* ---------- missing rules: say what is not set rather than guess ---------- */
@@ -192,12 +187,10 @@ function planHtml(){const r=R();
     ${field('umb','Max excursion umbilical','m')}${field('bovol','Bailout floodable vol','L')}${field('bop','Bailout fill pressure','bar')}</div>
     <p class="hint">Bell depth fills the Depth box on the main screen. Job fills Location if it is empty.</p></div>
    <div class="box"><h3>Bell gas</h3><div class="set">
-    ${J.banks.map((bk,i)=>`<label for="pb-${i}v">${esc(bk.name||'Bank '+(i+1))} volume <span class="hint" style="display:inline">L</span></label><input id="pb-${i}v" data-pb="${i}.v" inputmode="decimal" value="${esc(bk.v)}">
-      <label for="pb-${i}p">${esc(bk.name||'Bank '+(i+1))} pressure <span class="hint" style="display:inline">bar</span></label><input id="pb-${i}p" data-pb="${i}.p" inputmode="decimal" placeholder="${P.reading&&P.reading.banks&&P.reading.banks[i]!=null&&P.reading.banks[i]!==''?esc(P.reading.banks[i]):''}" value="${esc(bk.p)}">`).join('')}
-    <label for="po-v">O2 cylinder volume <span class="hint" style="display:inline">L</span></label><input id="po-v" data-po="v" inputmode="decimal" value="${esc(J.o2.v)}">
-    <label for="po-p">O2 pressure <span class="hint" style="display:inline">bar</span></label><input id="po-p" data-po="p" inputmode="decimal" placeholder="${P.reading&&P.reading.o2?esc(P.reading.o2):''}" value="${esc(J.o2.p)}"></div>
+    ${J.banks.map((bk,i)=>`<label for="pb-${i}v">${esc(bk.name||'Bank '+(i+1))} volume <span class="hint" style="display:inline">L</span></label><input id="pb-${i}v" data-pb="${i}.v" inputmode="decimal" value="${esc(bk.v)}">`).join('')}
+    <label for="po-v">O2 cylinder volume <span class="hint" style="display:inline">L</span></label><input id="po-v" data-po="v" inputmode="decimal" value="${esc(J.o2.v)}"></div>
     <div class="actions"><button class="act ghost" data-pa="addbank">Add bank</button>${J.banks.length>1?'<button class="act ghost" data-pa="delbank">Remove last bank</button>':''}</div>
-    <p class="hint">The newest pressures win: a reading saved on the Bell details page replaces what is typed here, and typing here replaces an older reading.</p></div>
+    <p class="hint">Volumes only. The app works out the minimum pressure each bank and the O2 must be charged to for the dive.</p></div>
    <div id="pl-out"></div>`}
 
 function paintOut(){const el=sec.querySelector('#pl-out');if(!el)return;const N=nums(),r=N.r;if(!r){el.innerHTML='';return}
@@ -215,16 +208,15 @@ function paintOut(){const el=sec.querySelector('#pl-out');if(!el)return;const N=
     <p class="hint" style="margin-top:8px">O2 % = ppO2 ÷ absolute pressure (depth ÷ 10 + 1). CO2 max = ${has(r.co2.mbar)?r.co2.mbar+' mbar':'limit'} ÷ absolute pressure.${ref('pp')}</p></div>`;
   // bailout
   {let b='';if(N.need!=null)b+=`<div class="pl-k"><span>Required bailout (${N.umb} m umbilical)</span><b>${f1(N.need)} min</b></div>`;
-   if(r.bailout.type==='cobra'&&N.d!=null){(P.job.cobraP||[]).forEach((x,i)=>{const pr=num(x);if(pr==null)return;const du=cobraDur(N.d,pr);b+=`<div class="pl-k ${N.need!=null&&du!=null&&du<N.need?'low':''}"><span>Diver ${i+1} COBRA at ${pr} bar</span><b>${du??'–'} min</b></div>`})}
+   if(r.bailout.type==='cobra'&&N.cobraMin!=null)b+=`<div class="pl-k"><span>COBRA min charge</span><b>${isFinite(N.cobraMin)?N.cobraMin+' bar':'not achievable'}</b></div>`;
    if(N.std)b+=`<div class="pl-k"><span>Open circuit ${N.std.vol} L at ${N.std.fill} bar</span><b>${f1(N.std.dur)} min</b></div>`+(N.std.minP!=null?`<div class="pl-k"><span>Open circuit min pressure</span><b>${Math.ceil(N.std.minP)} bar</b></div>`:'');
-   if(r.bailout.type==='cobra')b+=`<div class="set" style="margin-top:6px">${[0,1,2].map(i=>`<label for="pc-${i}">Diver ${i+1} COBRA charged</label><input id="pc-${i}" data-pc="${i}" inputmode="decimal" value="${esc(P.job.cobraP[i]||'')}" placeholder="bar">`).join('')}</div>`;
    h+=`<div class="box" style="padding:10px"><h3>Bailout${esc(ref('bailout'))}</h3>${b||'<p class="hint">Enter diver depth and umbilical length.</p>'}</div>`}
   // reclaim + OBG
   {const q=N.obgReq,o=N.o2r;
    h+=`<div class="pl-two"><div class="box" style="padding:10px"><h3>Reclaim setup</h3>${N.rec?`<div class="pl-k"><span>BPR setting</span><b>${f1(N.rec.bpr)} bar / ${f1(N.rec.psi)} psi</b></div><div class="pl-k"><span>Pressure abs</span><b>${f1(N.rec.abs)} bar</b></div>${N.rec.suc!=null?`<div class="pl-k"><span>Suction</span><b>${N.rec.suc} inHg</b></div>`:''}`:'<p class="hint">Enter the bell depth.</p>'}</div>
-    <div class="box" style="padding:10px"><h3>OBG minimum${q?' ('+q.D+' msw)':''}</h3>${q?q.rows.map(x=>`<div class="pl-k ${x.low?'low':''}"><span>${esc(x.name)}${x.v?' ('+x.v+' L)':''}</span><b>${x.min!=null?x.min+' bar':'–'}${x.low?' LOW':''}</b></div>`).join('')
-      +(q.total!=null?`<div class="pl-k"><span>Total needed (${r.obg.men} men)</span><b>${q.total} m³</b></div>`:'')+(q.miss?'':`<div class="pl-k ${q.total!=null&&q.use<q.total?'low':''}"><span>Usable now</span><b>${q.use} m³</b></div>`):'<p class="hint">Enter depths.</p>'}
-      ${o?`<div class="pl-k ${o.low?'low':''}"><span>Bell O2 reserve</span><b>${o.min} bar${o.low?' LOW':''}</b></div>`:''}</div></div>`}
+    <div class="box" style="padding:10px"><h3>OBG minimum${q?' ('+q.D+' msw)':''}</h3>${q?q.rows.map(x=>`<div class="pl-k"><span>${esc(x.name)}${x.v?' ('+x.v+' L)':''}</span><b>${x.min!=null?x.min+' bar':'–'}</b></div>`).join('')
+      +(q.total!=null?`<div class="pl-k"><span>Total needed (${r.obg.men} men)</span><b>${q.total} m³</b></div>`:''):'<p class="hint">Enter depths.</p>'}
+      ${o?`<div class="pl-k"><span>Bell O2 reserve min</span><b>${o.min} bar</b></div>`:''}</div></div>`}
   // tubes
   if(r.tubes.length)h+=`<div class="box" style="padding:10px"><h3>Bell Dräger tubes${esc(ref('tubes'))}</h3>${r.tubes.map(t=>`<div class="pl-k ${t.kind==='any'?'low':''}"><span>${esc(t.name)}<span class="hint" style="display:block">${esc(t.range||'')}</span></span><b>${t.kind==='mbar'&&has(t.max)?(t.max/10)+' % scale':'ANY reading'}</b></div>`).join('')}
     <p class="hint">Tubes read surface equivalent: scale % ÷ 100 = partial pressure in bar at any depth, so the maximum reading does not change with depth.</p></div>`;
@@ -328,7 +320,7 @@ async function pdf(btn){try{btn&&(btn.disabled=true);await loadPdfLib();const N=
      lines.forEach((l,i)=>{font('normal',11);col(l[2]||BLK);doc.text(l[0],x+3,y+15+i*6.5);font('bold',12);doc.text(l[1],x+bw-3,y+15+i*6.5,{align:'right'})});col(BLK);doc.setDrawColor(0,0,0)};
    const R2=N.rec,Q=N.obgReq,O=N.o2r;
    box(M,'RECLAIM SETUP'+(N.b!=null?'  (bell '+N.b+' msw)':''),R2?[['BPR setting',f1(R2.bpr)+' bar / '+f1(R2.psi)+' psi'],['Pressure abs',f1(R2.abs)+' bar']].concat(R2.suc!=null?[['Suction',R2.suc+' inHg']]:[]):[['Enter the bell depth','']]);
-   box(M+bw+gap,'OBG MINIMUM'+(Q?'  ('+Q.D+' msw)':''),Q?Q.rows.slice(0,3).map(x=>[x.name+(x.v?'  ('+x.v+' L)':''),(x.min!=null?x.min+' bar':'-')+(x.low?'  LOW':''),x.low?RED:BLK]).concat(O?[['Bell O2 reserve',O.min+' bar'+(O.low?'  LOW':''),O.low?RED:BLK]]:[]):[['Enter the depths','']]);
+   box(M+bw+gap,'OBG MINIMUM'+(Q?'  ('+Q.D+' msw)':''),Q?Q.rows.slice(0,3).map(x=>[x.name+(x.v?'  ('+x.v+' L)':''),(x.min!=null?x.min+' bar':'-'),BLK]).concat(O?[['Bell O2 reserve min',O.min+' bar',BLK]]:[]):[['Enter the depths','']]);
    y+=bh+4}
   if(r.tubes.length){const th=24,cw=CW/Math.min(4,r.tubes.length);doc.setDrawColor(...RED);doc.setLineWidth(.6);doc.rect(M,y,CW,th);doc.setFillColor(...RED);doc.rect(M,y,CW,6.5,'F');font('bold',10);doc.setTextColor(255,255,255);
    doc.text('BELL DRÄGER TUBES  (scale reads surface equivalent; same max at any depth)',M+3,y+4.6);
@@ -359,10 +351,7 @@ function summary(){const el=document.getElementById('plansum');if(!el)return;con
 /* diver and bell detail additions */
 window.DP={
   detailBox(who){const r=R();if(!r)return'';const N=nums();
-    if(who==='bell'){const q=N.obgReq,o=N.o2r,rd=P.reading;if(!q&&!o)return'';
-      return `<div class="box"><h3>Bell gas reading${rd?' · last '+clock(rd.t):''}</h3><div class="set">${P.job.banks.map((bk,i)=>`<label for="rd-${i}">${esc(bk.name||'Bank '+(i+1))}${q&&q.rows[i]&&q.rows[i].min!=null?' <span class="hint" style="display:inline">min '+q.rows[i].min+'</span>':''}</label><input id="rd-${i}" data-rd="${i}" inputmode="decimal" value="${esc(rd&&rd.banks&&rd.banks[i]!=null?rd.banks[i]:'')}" placeholder="bar">`).join('')}
-        <label for="rd-o2">O2${o?' <span class="hint" style="display:inline">min '+o.min+'</span>':''}</label><input id="rd-o2" data-rd="o2" inputmode="decimal" value="${esc(rd&&rd.o2!=null?rd.o2:'')}" placeholder="bar"></div>
-        <div class="actions"><button class="act alt" data-pa="saveread">Save reading</button></div></div>`}
+    if(who==='bell')return'';
     if(N.d==null&&N.need==null)return'';const lines=[];
     if(N.need!=null)lines.push(['Required bailout',f1(N.need)+' min']);
     if(r.bailout.type==='cobra'&&N.cobraMin!=null)lines.push(['COBRA min charge',isFinite(N.cobraMin)?N.cobraMin+' bar':'not achievable']);
@@ -370,9 +359,6 @@ window.DP={
     if(N.std&&N.std.minP!=null)lines.push(['Open circuit min',Math.ceil(N.std.minP)+' bar']);
     if(N.umb!=null)lines.push(['Max umbilical',N.umb+' m']);
     return lines.length?`<div class="box"><h3>Bailout · dive plan</h3><dl>${lines.map(([a,b])=>`<div class="row"><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl></div>`:''},
-  alerts(){const r=R();if(!r)return[];const N=nums(),a=[];
-    if(N.obgReq)N.obgReq.rows.forEach(x=>{if(x.low)a.push(`${x.name} ${x.pr} bar, below ${x.min} bar minimum`)});
-    if(N.o2r&&N.o2r.low)a.push(`Bell O2 ${N.o2r.pr} bar, below ${N.o2r.min} bar reserve`);return a},
   open};
 
 /* ---------- events ---------- */
@@ -391,9 +377,6 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-pa]'
   if(a==='tblclear'){if(!confirm2(b,'Tap again'))return;const k=b.dataset.k,r=R();if(k==='cobraDur'){r.tables.cobraDur=[];r.tables.cobraP=[]}else r.tables[k]=[];psave();paint();return}
   if(a==='savetubes'){const r=R(),lines=sec.querySelector('#pr-tubes').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     r.tubes=lines.map(l=>{const[n,rg,mx]=l.split('|').map(x=>(x||'').trim());const m=num(mx);return m!=null?{name:n,range:rg,kind:'mbar',max:m}:{name:n,range:rg,kind:'any'}});psave();paint();toast('Tubes saved');return}
-  if(a==='saveread'){const rd={t:Date.now(),banks:P.job.banks.map((_,i)=>{const el=document.getElementById('rd-'+i);return el?el.value.trim():''}),o2:(document.getElementById('rd-o2')||{}).value||''};
-    P.reading=rd;psave();summary();if(typeof renderDetail==='function')renderDetail();if(typeof tick==='function')tick();
-    const lows=window.DP.alerts();toast(lows.length?'LOW: '+lows[0]:'Reading saved, all above minimum');return}
 },true);
 sec.addEventListener('change',e=>{const el=e.target;
   if(el.id==='pr-file'){const f=el.files&&el.files[0];if(!f)return;f.text().then(importText);el.value='';return}

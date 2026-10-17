@@ -16,5 +16,6 @@ Install on Android: open the link in Chrome, then ⋮ menu → **Add to Home scr
 
 - **Dive plan** card on the main screen: gas card, bailout, reclaim, OBG and bell O2 minimums, Dräger tubes, checks, depth sketch and an A4 gas card PDF.
 - Runs on a **rules profile** loaded on the phone (Rules › Load profile file) or built in the app. No company's rules are included in this repository.
-- Bell depth fills the Depth box; diver detail shows the bailout figures; bell gas readings below minimum show in the alert bar.
+- Bell depth fills the Depth box; diver detail shows the bailout figures.
+- Gas shows **minimum pressures only** (COBRA, OBG banks, bell O2). No gauge pressures are entered.
 

@@ -1,6 +1,6 @@
 // OnPanel service worker: keeps the app working offline.
 // Bump VERSION whenever any app file changes so phones pick up the update.
-const VERSION = 'dive-times-v42';
+const VERSION = 'dive-times-v43';
 const SHELL = ['./', 'index.html', 'plan.js', 'jspdf.umd.min.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
