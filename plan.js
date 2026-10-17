@@ -184,7 +184,7 @@ function planHtml(){const r=R();
     <label for="pj-name">Job / vessel</label><input id="pj-name" class="wide" data-pj="name" value="${esc(J.name)}" autocomplete="off">
     ${field('diver','Divers max depth')}${field('dmin','Divers min depth','msw','if shallower')}${field('bell','Bell depth')}${field('storage','Storage')}
     ${field('sm','S/M (short mark)')}${field('off','Clump below bell','m')}${field('structure','Structure (top)')}${field('seabed','Seabed')}
-    ${field('umb','Max excursion umbilical','m')}${field('bovol','Bailout floodable vol','L')}${r.bailout.type==='cobra'?'':field('bop','Bailout fill pressure','bar')}</div>
+    ${field('umb','Max excursion umbilical','m')}${r.bailout.type==='cobra'?'':field('bovol','Bailout floodable vol','L')+field('bop','Bailout fill pressure','bar')}</div>
     <p class="hint">Bell depth fills the Depth box on the main screen. Job fills Location if it is empty.</p></div>
    <div class="box"><h3>Bell gas</h3><div class="set">
     ${J.banks.map((bk,i)=>`<label for="pb-${i}v">${esc(bk.name||'Bank '+(i+1))} volume <span class="hint" style="display:inline">L</span></label><input id="pb-${i}v" data-pb="${i}.v" inputmode="decimal" value="${esc(bk.v)}">`).join('')}
