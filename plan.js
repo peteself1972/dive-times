@@ -171,6 +171,29 @@ const css=document.createElement('style');css.textContent=`
 #cardview canvas{display:block;width:100%;height:auto;background:#fff;border-radius:4px;box-shadow:0 2px 12px rgba(0,0,0,.35)}
 #cardview.zoom canvas{width:250%;max-width:none}
 #cardview .hint{text-align:center;margin-top:8px}
+#plan .pl-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)}
+#plan .pl-row:last-child{border-bottom:none}
+#plan .pl-row label{font-weight:600;color:var(--fg);font-size:1rem;line-height:1.2}
+#plan .pl-row label small{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:2px}
+#plan .pl-in{position:relative;display:inline-block}
+#plan .pl-in input{width:7.6em;min-height:48px;background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:8px 3.1em 8px 10px;text-align:right;font-family:var(--f-display);font-weight:600;font-size:1.3rem;font-variant-numeric:tabular-nums;color:var(--fg)}
+#plan .pl-in input.txt{width:11em;padding-right:10px;text-align:left;font-family:var(--f-body);font-size:1rem;font-weight:500}
+#plan .pl-in i{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-style:normal;font-size:.8rem;color:var(--muted);pointer-events:none}
+#plan .pl-in input:placeholder-shown{border-color:var(--accent);border-style:dashed}
+#plan .pl-row.opt .pl-in input:placeholder-shown{border-color:var(--line);border-style:solid}
+#plan .pl-w{grid-column:1/-1;font-size:.88rem;font-weight:600;color:var(--warn)}
+#plan .pl-w:empty{display:none}
+#plan .pl-row.flag .pl-in input{border-color:var(--warn)}
+.pl-status{position:sticky;top:0;z-index:2;border-radius:12px;padding:10px 12px;border:2px solid var(--accent);background:var(--panel);display:grid;gap:8px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.pl-status.done{border-color:var(--ok)}
+.pl-status .st{font-family:var(--f-display);font-weight:700;font-size:1.1rem;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.pl-status .pl-vsum .chipbtn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:62%}
+.pl-status.done .st{color:var(--ok)}
+.pl-status .miss{display:flex;flex-wrap:wrap;gap:6px}
+.pl-status .miss button{min-height:36px}
+.pl-vsum{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.pl-vsum span{color:var(--fg);font-variant-numeric:tabular-nums}
+.pl-step{font-family:var(--f-display);font-weight:700;color:var(--accent);margin-right:6px}
 #plancard summary .cvq{margin-left:auto;margin-right:12px;font-family:var(--f-body);text-transform:none;letter-spacing:0;font-size:.85rem}`;
 document.head.appendChild(css);
 
@@ -185,21 +208,65 @@ function paint(){if(sec.contains(document.activeElement)&&document.activeElement
    <span class="hint" style="align-self:center">${r?'Rules: <b>'+esc(r.name)+'</b>':'No rules loaded'}</span></div>`;
   sec.innerHTML=`<div class="dwrap">${head}${view==='rules'?rulesHtml():planHtml()}</div>`;paintOut()}
 
+/* ---------- input form: vessel set-up (once) + job depths in water-column order ---------- */
+let vEdit=false;
+// [key, label, sub-hint, unit, required]
+const VFIELDS=()=>{const r=R(),f=[['off','Clump hangs below bell','Distance from the bell to the clump weight','m',1],['umb','Max excursion umbilical','Longest umbilical the divers will have out','m',1]];
+  if(r&&r.bailout.type!=='cobra')f.push(['bovol','Bailout cylinder floodable volume','','L',1],['bop','Bailout cylinder fill pressure','','bar',1]);return f};
+const JFIELDS=[['storage','Storage depth','Chamber storage depth','msw',1],['sm','Short mark (S/M)','','msw',1],['bell','Bell depth','Fills the Depth box on the main screen','msw',1],
+  ['diver','Divers deepest','Deepest the divers will work','msw',1],['dmin','Divers shallowest','Optional: only if they work shallower than storage','msw',0],
+  ['structure','Structure top','Top of the structure or asset','msw',1],['seabed','Seabed','','msw',1]];
+const filled=k=>num(P.job[k])!=null;
+function missing(){const out=[];const J=P.job;
+  J.banks.forEach((bk,i)=>{if(num(bk.v)==null)out.push({k:'pb-'+i+'v',l:(bk.name||'Bank '+(i+1))+' volume',v:1})});
+  if(num(J.o2.v)==null)out.push({k:'po-v',l:'O2 cylinder volume',v:1});
+  VFIELDS().forEach(f=>{if(f[4]&&!filled(f[0]))out.push({k:'pj-'+f[0],l:f[1],v:1})});
+  JFIELDS.forEach(f=>{if(f[4]&&!filled(f[0]))out.push({k:'pj-'+f[0],l:f[1]})});return out}
+const vesselDone=()=>!missing().some(m=>m.v);
+const inRow=(id,data,label,sub,unit,val,req,ph='')=>`<div class="pl-row${req?'':' opt'}" data-row="${id}"><label for="${id}">${label}${sub?`<small>${sub}</small>`:''}</label>
+  <span class="pl-in"><input id="${id}" ${data} inputmode="decimal" enterkeyhint="next" autocomplete="off" placeholder="${ph||(req?'enter':'optional')}" value="${esc(val??'')}"><i>${unit}</i></span><div class="pl-w" data-w="${id}"></div></div>`;
+function vesselHtml(){const J=P.job;
+  if(vesselDone()&&!vEdit){const banks=J.banks.map(b=>num(b.v)).join(' / ');
+    return `<div class="box" style="padding:10px 14px"><div class="pl-vsum"><div><h3 style="margin-top:0"><span class="pl-step">1</span>Vessel set-up ✓</h3>
+      <span>${J.banks.length} banks ${banks} L · O2 ${num(J.o2.v)} L · clump ${num(J.off)} m · umbilical ${num(J.umb)} m</span></div><button class="chipbtn" data-pa="vedit">Edit</button></div></div>`}
+  return `<div class="box"><h3><span class="pl-step">1</span>Vessel set-up</h3><p class="hint">Fill in once for the vessel. It stays set for every job.</p>
+    ${J.banks.map((bk,i)=>inRow('pb-'+i+'v',`data-pb="${i}.v"`,esc(bk.name||'Bank '+(i+1))+' volume',i===0?'OBG bank floodable volume':'','L',bk.v,1)).join('')}
+    <div class="actions" style="margin:6px 0"><button class="chipbtn" data-pa="addbank">+ Add bank</button>${J.banks.length>1?'<button class="chipbtn" data-pa="delbank">Remove last bank</button>':''}</div>
+    ${inRow('po-v','data-po="v"','O2 cylinder volume','Bell onboard O2','L',J.o2.v,1)}
+    ${VFIELDS().map(f=>inRow('pj-'+f[0],`data-pj="${f[0]}"`,f[1],f[2],f[3],P.job[f[0]],f[4])).join('')}
+    ${vesselDone()?'<div class="actions"><button class="act alt" data-pa="vdone">Done</button></div>':''}</div>`}
 function planHtml(){const r=R();
   if(!r)return `<div class="pl-warnbox"><b>No rules loaded.</b> The plan needs your company's limits. Go to <b>Rules</b> to load your profile file or make one.</div>`;
   const J=P.job;
-  return `<div class="box"><h3>Job</h3><div class="set">
-    <label for="pj-name">Job / vessel</label><input id="pj-name" class="wide" data-pj="name" value="${esc(J.name)}" autocomplete="off">
-    ${field('diver','Divers max depth')}${field('dmin','Divers min depth','msw','if shallower')}${field('bell','Bell depth')}${field('storage','Storage')}
-    ${field('sm','S/M (short mark)')}${field('off','Clump below bell','m')}${field('structure','Structure (top)')}${field('seabed','Seabed')}
-    ${field('umb','Max excursion umbilical','m')}${r.bailout.type==='cobra'?'':field('bovol','Bailout floodable vol','L')+field('bop','Bailout fill pressure','bar')}</div>
-    <p class="hint">Bell depth fills the Depth box on the main screen. Job fills Location if it is empty.</p></div>
-   <div class="box"><h3>Bell gas</h3><div class="set">
-    ${J.banks.map((bk,i)=>`<label for="pb-${i}v">${esc(bk.name||'Bank '+(i+1))} volume <span class="hint" style="display:inline">L</span></label><input id="pb-${i}v" data-pb="${i}.v" inputmode="decimal" value="${esc(bk.v)}">`).join('')}
-    <label for="po-v">O2 cylinder volume <span class="hint" style="display:inline">L</span></label><input id="po-v" data-po="v" inputmode="decimal" value="${esc(J.o2.v)}"></div>
-    <div class="actions"><button class="act ghost" data-pa="addbank">Add bank</button>${J.banks.length>1?'<button class="act ghost" data-pa="delbank">Remove last bank</button>':''}</div>
-    <p class="hint">Volumes only. The app works out the minimum pressure each bank and the O2 must be charged to for the dive.</p></div>
+  return `<div class="pl-status" id="pl-status"></div>
+   ${vesselHtml()}
+   <div class="box"><h3><span class="pl-step">2</span>This job · top to bottom</h3>
+    <div class="pl-row opt"><label for="pj-name">Job / location<small>Fills Location on the main screen if empty</small></label><span class="pl-in"><input id="pj-name" class="txt" data-pj="name" enterkeyhint="next" autocomplete="off" placeholder="optional" value="${esc(J.name)}"></span><div class="pl-w"></div></div>
+    ${JFIELDS.map(f=>inRow('pj-'+f[0],`data-pj="${f[0]}"`,f[1],f[2],f[3],J[f[0]],f[4])).join('')}
+    <div id="pl-sketch" style="margin-top:10px"></div>
+    <div class="actions" style="margin-top:10px"><button class="act ghost" data-pa="newjob">New job (clear depths)</button></div></div>
    <div id="pl-out"></div>`}
+/* live parts that change as you type, without redrawing the boxes you are typing in */
+function paintLive(){const st=sec.querySelector('#pl-status');if(!st)return;const N=nums(),r=N.r,m=missing();
+  const sk=sec.querySelector('#pl-sketch');if(sk)sk.innerHTML=sketch(N);
+  const w={},put=(k,t)=>{if(!w[k])w[k]=t};const{d,dmin,b,st:s,cl,str,sb}=N,e=r&&r.envelope;
+  if(s!=null&&e&&has(e.storMin,e.storMax)&&(s<e.storMin||s>e.storMax))put('pj-storage',`Outside the ${e.storMin} to ${e.storMax} msw storage range in your rules`);
+  if(d!=null&&e&&has(e.diveMin,e.diveMax)&&(d<e.diveMin||d>e.diveMax))put('pj-diver',`Outside the ${e.diveMin} to ${e.diveMax} msw diving range in your rules`);
+  if(d!=null&&dmin!=null&&dmin>d)put('pj-dmin','Shallowest is deeper than deepest');
+  if(dmin!=null&&s!=null&&dmin>=s)put('pj-dmin','Only needed if shallower than storage, leave blank');
+  if(sb!=null&&cl!=null&&sb<=cl)put('pj-seabed',`Seabed is not below the clump (${cl} msw)`);
+  if(sb!=null&&d!=null&&d>sb)put('pj-diver','Deeper than the seabed');
+  if(sb!=null&&str!=null&&str>sb)put('pj-structure','Structure top is deeper than the seabed');
+  if(str!=null&&cl!=null&&str<=cl)put('pj-structure',`Clump (${cl} msw) would be at or below the structure top`);
+  if(b!=null&&s!=null&&Math.abs(b-s)>60)put('pj-bell','Check: bell is more than 60 m from storage');
+  if(num(P.job.off)!=null&&num(P.job.off)>15)put('pj-off','Check: this is the gap to the clump, not the clump depth');
+  sec.querySelectorAll('[data-w]').forEach(el=>{const t=w[el.dataset.w]||'';if(el.textContent!==t)el.textContent=t;el.closest('.pl-row').classList.toggle('flag',!!t)});
+  // status strip: one line so it never hides the box you are typing in
+  const wk=Object.keys(w);
+  if(m.length){st.className='pl-status';st.innerHTML=`<div class="pl-vsum"><span class="st">${m.length} to fill</span><button class="chipbtn" data-pa="goto" data-k="${m[0].k}">Next: ${esc(m[0].l)} ›</button></div>`}
+  else if(wk.length){st.className='pl-status';st.style.borderColor='var(--warn)';st.innerHTML=`<div class="pl-vsum"><span class="st" style="color:var(--warn)">${wk.length} to check</span><button class="chipbtn" data-pa="goto" data-k="${wk[0]}">Show ›</button></div>`}
+  else{st.className='pl-status done';st.innerHTML=`<div class="st">Card complete ✓</div><div class="actions"><button class="act" data-pa="viewcard">View card</button><button class="act ghost" data-pa="pdf">Share PDF</button></div>`}
+  if(!wk.length||m.length)st.style.borderColor=''}
 
 function paintOut(){const el=sec.querySelector('#pl-out');if(!el)return;const N=nums(),r=N.r;if(!r){el.innerHTML='';return}
   const g=gaps();let h='';
@@ -231,10 +298,9 @@ function paintOut(){const el=sec.querySelector('#pl-out');if(!el)return;const N=
   // checks + sketch
   const ck=checks(N);
   h+=`<div class="box" style="padding:10px"><h3>Checks</h3><div class="pl-chk">${ck.length?ck.map(([l,t])=>`<div class="${l}">${esc(t)}</div>`).join(''):'<p class="hint">Enter storage, bell and diver depths.</p>'}</div></div>
-   <div class="box" style="padding:10px"><h3>Depth sketch · not to scale</h3>${sketch(N)}</div>
    <div class="actions"><button class="act" data-pa="viewcard">View card</button><button class="act ghost" data-pa="pdf">Share PDF</button></div>
    <p class="hint">Backup aid only. Check every figure against your controlling procedures before relying on it.</p>`;
-  el.innerHTML=h}
+  el.innerHTML=h;paintLive()}
 
 /* ---------- UI: rules ---------- */
 const RF=[ // [path,label,unit]
@@ -398,6 +464,10 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-pa]'
   if(a==='viewcard'){e.preventDefault();viewCard(b);return}
   if(a==='cvshare'){if(cvCard)shareCard(cvCard);return}
   if(a==='cvclose'){closeCard();return}
+  if(a==='vedit'){vEdit=true;paint();return}
+  if(a==='vdone'){vEdit=false;paint();return}
+  if(a==='goto'){const k=b.dataset.k;if(!sec.querySelector('#'+k)){vEdit=true;paint()}const el=sec.querySelector('#'+k);if(el){el.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>el.focus({preventScroll:true}),250)}return}
+  if(a==='newjob'){if(!confirm2(b,'Tap again to clear depths'))return;['storage','sm','bell','diver','dmin','structure','seabed'].forEach(k=>P.job[k]='');psave();linkMain();paint();summary();toast('Depths cleared. Vessel set-up kept.');return}
   if(a==='addbank'){P.job.banks.push({name:'Bank '+(P.job.banks.length+1),v:'',p:''});psave();paint();return}
   if(a==='delbank'){if(!confirm2(b,'Tap again'))return;P.job.banks.pop();psave();paint();return}
   if(a==='import'){sec.querySelector('#pr-file').click();return}
@@ -422,6 +492,12 @@ sec.addEventListener('input',e=>{const el=e.target;
   if(el.dataset.po){P.job.o2[el.dataset.po]=el.value.trim();if(el.dataset.po==='p')P.job.pTime=Date.now();psave();paintOut();summary();return}
   if(el.dataset.pc){P.job.cobraP[+el.dataset.pc]=el.value.trim();psave();paintOut();return}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sec.hidden)close()});
+// keyboard Next steps through the boxes in screen order
+sec.addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.matches('.pl-in input'))return;e.preventDefault();
+  const all=[...sec.querySelectorAll('.pl-in input')],i=all.indexOf(e.target),nx=all[i+1];if(nx){nx.focus();nx.scrollIntoView({block:'center',behavior:'smooth'})}else e.target.blur()});
+// leaving a box: refold vessel set-up once complete, refresh labels
+sec.addEventListener('focusout',()=>setTimeout(()=>{if(sec.hidden||sec.contains(document.activeElement)&&document.activeElement.matches('input,textarea,select'))return;
+  if(view==='plan'&&!vEdit&&vesselDone()&&sec.querySelector('[data-pb]'))paint()},0));
 
 summary();
 })();
