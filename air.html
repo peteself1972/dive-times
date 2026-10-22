@@ -1,0 +1,856 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1216" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e9eef0" media="(prefers-color-scheme: light)">
+<meta name="description" content="OnPanel air: surface-supplied air and nitrox dive timer">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>html{-webkit-text-size-adjust:100%}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>OnPanel · Air</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Same look as the sat Dive Times app: sticky clock + alerts, one big tap tile per person (tap = stamp, hold = details). Dark first for night shifts. */
+:root{
+  --bg:#0b1216; --panel:#121c22; --raise:#1a2730; --line:#263640;
+  --fg:#e4edf1; --muted:#87989f; --accent:#6db3d6; --accent-ink:#06141b;
+  --ok:#3fcf8e; --ok-bg:#0f2a1f; --sub:#c9b8ff; --warn:#f0b03a; --crit:#ff6a52; --over-bg:#3a1410;
+  --o2:#7fd3ff; --o2-bg:#0e2632; --proto:#f0b03a; --btn-fin:#c8321c; --on-btn:#ffffff;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --bg:#e9eef0; --panel:#ffffff; --raise:#f1f5f7; --line:#cfdae0;
+  --fg:#0e1a20; --muted:#55666e; --accent:#1f6f98; --accent-ink:#ffffff;
+  --ok:#0f8a55; --ok-bg:#dcf5e9; --sub:#5a3aa8; --warn:#a96a00; --crit:#c8321c; --over-bg:#fde3de;
+  --o2:#0b6a9c; --o2-bg:#e0f1fa; --proto:#8a5600; color-scheme:light } }
+:root[data-theme="light"]{
+  --bg:#e9eef0; --panel:#ffffff; --raise:#f1f5f7; --line:#cfdae0;
+  --fg:#0e1a20; --muted:#55666e; --accent:#1f6f98; --accent-ink:#ffffff;
+  --ok:#0f8a55; --ok-bg:#dcf5e9; --sub:#5a3aa8; --warn:#a96a00; --crit:#c8321c; --over-bg:#fde3de;
+  --o2:#0b6a9c; --o2-bg:#e0f1fa; --proto:#8a5600; color-scheme:light }
+:root[data-theme="dark"]{
+  --bg:#0b1216; --panel:#121c22; --raise:#1a2730; --line:#263640;
+  --fg:#e4edf1; --muted:#87989f; --accent:#6db3d6; --accent-ink:#06141b;
+  --ok:#3fcf8e; --ok-bg:#0f2a1f; --sub:#c9b8ff; --warn:#f0b03a; --crit:#ff6a52; --over-bg:#3a1410;
+  --o2:#7fd3ff; --o2-bg:#0e2632; --proto:#f0b03a; color-scheme:dark }
+
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.4;padding-inline:16px;padding-block:0 120px}
+*{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* 3D buttons, as in the sat app */
+.finbtn,.act,.t-foot .ft.tapbtn,.more,.chipbtn,.back,#undo button,.seg button{
+  position:relative;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.28),0 3px 0 rgba(0,0,0,.45),0 5px 10px rgba(0,0,0,.35);
+  background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 55%,rgba(0,0,0,.14));
+  transition:transform .06s ease,box-shadow .06s ease}
+.finbtn:active,.act:active,.more:active,.chipbtn:active,.back:active,#undo button:active,.seg button:active,.tile.pressing .t-foot .ft.tapbtn{
+  transform:translateY(3px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(0,0,0,.25),0 0 0 rgba(0,0,0,.45),0 2px 4px rgba(0,0,0,.3)}
+@media (prefers-reduced-motion:reduce){.finbtn,.act,.t-foot .ft.tapbtn,.more,.chipbtn,.back,#undo button,.seg button{transition:none}}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;margin-inline:-16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line);display:grid;gap:6px}
+.barrow,#alerts{max-width:560px;width:100%;margin:0 auto}
+.barrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.bar h1{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.06em;text-transform:uppercase;margin:0;white-space:nowrap}
+.modesw{display:flex;gap:4px;flex:1}
+.modesw a{text-decoration:none;color:var(--fg);font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px}
+.rulesnote{font-size:.9rem;color:var(--muted)} .rulesnote b{color:var(--fg)} .rulesnote.w{color:var(--warn)}
+.clock{font-family:var(--f-display);font-weight:600;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.chipbtn{border:1px solid var(--line);background:var(--raise);border-radius:999px;padding:6px 12px;font-size:.85rem;cursor:pointer}
+.chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+#alerts{display:grid;gap:6px}
+#alerts:empty{display:none}
+.alert{display:flex;align-items:center;gap:10px;border-radius:8px;padding:6px 10px;border:1px solid currentColor;font-weight:600;background:var(--panel)}
+.alert.info{color:var(--accent)} .alert.warn{color:var(--warn)} .alert.crit{color:var(--crit)} .alert.over{color:var(--crit);background:var(--over-bg)}
+.alert span{flex:1;color:var(--fg);cursor:pointer}
+.alert button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:8px;padding:4px 10px;cursor:pointer}
+
+main{display:grid;gap:12px;max-width:560px;margin:12px auto 0}
+#tiles{display:grid;gap:12px}
+
+/* prototype banner for table mode */
+.proto{border:2px dashed var(--proto);color:var(--proto);border-radius:12px;padding:8px 12px;font-weight:600;font-size:.92rem}
+.proto b{font-family:var(--f-display);letter-spacing:.06em;text-transform:uppercase;font-size:1.05rem}
+
+/* run info and dive plan */
+.info{display:grid;grid-template-columns:minmax(0,1fr) 5em;gap:8px}
+.plan{display:grid;grid-template-columns:5.4em minmax(0,1fr) 5em;gap:8px;align-items:end}
+.fld{display:grid;gap:3px;min-width:0}
+.fld>span{font-size:.72rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.fld input{width:100%;min-width:0;min-height:44px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;
+  font-family:var(--f-display);font-weight:600;font-size:1.25rem;color:var(--fg);font-variant-numeric:tabular-nums}
+.fld input::placeholder{color:var(--muted);opacity:.7}
+.fld.c input{text-align:center}
+.fld input:disabled{opacity:.35}
+.seg{display:flex;gap:6px;min-width:0}
+.seg button{flex:1 1 0;min-width:0;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--raise);
+  font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;padding:0 6px;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.seg.mode button{font-size:.98rem}
+.planbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:grid;gap:10px}
+.planbox .fld>span{color:var(--muted)}
+.tabnow{font-family:var(--f-display);font-weight:600;font-size:1.15rem;letter-spacing:.02em;font-variant-numeric:tabular-nums;color:var(--sub);line-height:1.25}
+.tabnow.err{color:var(--crit)}
+.tabnow small{display:block;font-family:var(--f-body);font-size:.85rem;color:var(--muted);font-weight:500}
+
+/* tiles */
+.tile{position:relative;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-left:8px solid var(--line);border-radius:14px;
+  padding:12px 14px 10px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;min-width:0;
+  transition:transform .12s ease, filter .12s ease}
+.tile.pressing{transform:scale(.98);filter:brightness(1.15)}
+.t-top{display:flex;align-items:center;gap:10px;min-width:0}
+.t-title{flex:1;min-width:0;display:flex;flex-wrap:wrap;column-gap:.45em;align-items:baseline;line-height:1.15}
+.t-name,.chip{font-family:var(--f-display);font-weight:700;font-size:1.45rem;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.chip{font-variant-numeric:tabular-nums}
+.t-person{flex:1 1 8em;min-width:0;min-height:40px;align-self:center;background:var(--raise);border:1px solid var(--line);border-radius:10px;padding:4px 10px;
+  font-family:var(--f-display);font-weight:700;font-size:1.3rem;letter-spacing:.03em;color:var(--fg)}
+.t-person::placeholder{color:var(--muted);font-weight:600;opacity:.8}
+.more{flex:0 0 auto;width:44px;height:44px;margin:-6px -6px -6px auto;border-radius:10px;border:1px solid var(--line);background:var(--raise);font-size:1.5rem;line-height:1;cursor:pointer}
+.t-lab{font-size:.8rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.t-big,.t-val{font-family:var(--f-display);font-weight:600;font-size:clamp(1.7rem,7.8vw,2.4rem);line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.t-val{color:var(--sub)}
+.t-row{display:grid;grid-auto-flow:column;justify-content:space-between;align-items:end;column-gap:10px;margin-top:6px}
+.t-x{display:contents}
+.t-cell{display:flex;flex-direction:column;justify-content:flex-end;min-width:0}
+.t-cell .t-lab{margin-top:0;font-size:.72rem;letter-spacing:.06em;line-height:1.2;margin-bottom:2px}
+.t-sub:empty{display:none}
+.t-sub{font-size:1.02rem;font-weight:600;color:var(--sub);font-variant-numeric:tabular-nums;margin-top:4px;line-height:1.3}
+.t-sub .w{color:var(--warn)} .t-sub .c{color:var(--crit)}
+.t-foot{margin-top:8px;border-top:1px dashed var(--line);padding-top:7px;font-family:var(--f-display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;min-height:44px}
+.t-foot .ft{flex:1;min-width:0;font-size:1.05rem}
+.t-foot b{color:var(--fg)}
+.t-foot .ft.tapbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35em;min-height:44px;padding:0 12px;border:2px solid currentColor;border-radius:10px;white-space:nowrap;color:var(--fg);font-size:1rem;letter-spacing:.04em;background-color:rgba(255,255,255,.04)}
+.t-foot .ft.tapbtn.early{color:var(--warn)}
+.steps{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px}
+.steps i{font-style:normal;font-family:var(--f-display);font-weight:600;font-size:1.05rem;border:1px solid var(--line);border-radius:8px;padding:1px 8px;font-variant-numeric:tabular-nums;color:var(--muted)}
+.steps i.now{border-color:var(--fg);color:var(--fg)} .steps i.done{opacity:.45;text-decoration:line-through}
+.steps i.o2{border-color:var(--o2);color:var(--o2)}
+
+.sev-done{border-left-color:var(--muted);opacity:.85} .sev-done .t-foot{color:var(--muted)}
+.sev-ok{border-left-color:var(--ok)} .sev-wait{border-left-color:var(--accent)}
+.sev-o2{border-left-color:var(--o2);background:var(--o2-bg)} .sev-o2 .t-big{color:var(--o2)}
+.sev-warn{border-left-color:var(--warn)} .sev-crit,.sev-over{border-left-color:var(--crit)} .sev-over{background:var(--over-bg)}
+.tile.sev-warn{--tc:var(--warn)} .tile.sev-crit,.tile.sev-over{--tc:var(--crit)}
+.tile:is(.sev-warn,.sev-crit,.sev-over) :is(.chip,.t-name,.t-lab,.t-big,.t-val,.t-sub,.t-foot,.t-foot b){color:var(--tc)}
+
+.hint{font-size:.85rem;color:var(--muted);margin:0;max-width:62ch}
+details.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:12px}
+details.card summary{font-family:var(--f-display);font-weight:700;font-size:1.15rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;list-style:none;display:flex;justify-content:space-between}
+details.card summary::-webkit-details-marker{display:none}
+details.card summary::after{content:"+";color:var(--muted)} details[open].card summary::after{content:"–"}
+details.card[open]>*:not(summary){margin-top:12px}
+.set{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center}
+.set label{color:var(--muted);font-size:.95rem}
+.set input[type="text"],.set input[type="number"]{width:6.5em;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums}
+.set input.name{width:9em;text-align:left}
+.set input[type="checkbox"]{width:24px;height:24px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.act{flex:1 1 140px;min-height:52px;border-radius:10px;border:none;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-weight:700;font-size:1.15rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.act.fin{background:var(--btn-fin);color:var(--on-btn);border:2px solid var(--on-btn)}
+.act.alt{background:var(--raise);color:var(--fg);border:1px solid var(--line)}
+.act.ghost{flex:0 0 auto;min-height:44px;background:transparent;color:var(--muted);border:1px solid var(--line);font-size:.95rem}
+.act[data-act="save"]{flex:1.4 1 0;min-width:0}
+.act.ghost[data-act="reset"]{flex:1 1 0;min-width:0;min-height:52px;font-size:1.1rem}
+.armed{background:var(--crit)!important;color:var(--on-btn)!important;border-color:var(--crit)!important}
+.okflash{background:var(--ok)!important;color:var(--on-btn)!important;border-color:var(--ok)!important}
+.okfade{transition:background .8s,color .8s,border-color .8s}
+.hist{display:grid;gap:10px}
+.hist pre{white-space:pre-wrap;margin:0;font-size:.85rem;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:10px;font-variant-numeric:tabular-nums;overflow-x:auto}
+.hist .ra{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.hist .ra .chipbtn{min-height:40px;display:inline-flex;align-items:center;text-decoration:none;color:var(--fg)}
+.hist .del{color:var(--crit)!important;border-color:var(--crit)}
+.hist .del.armed,.hist .del.okflash{color:var(--on-btn)!important}
+.hist .run{padding-bottom:12px;border-bottom:1px solid var(--line)}
+.hist .h{font-weight:600}
+
+/* table viewer */
+.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table.tb{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.95rem}
+.tb th,.tb td{padding:5px 7px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+.tb th{font-size:.72rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--raise)}
+.tb td.o2{color:var(--o2)}
+.tb tr.cur td{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.tb tr.hse td{color:var(--crit)}
+.tb tr.cur.hse td{color:var(--accent-ink)}
+.tsel{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tsel select{min-height:40px;background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-family:var(--f-display);font-weight:600;font-size:1.1rem}
+
+/* detail panel */
+#detail{position:fixed;inset:0;z-index:5;background:var(--bg);overflow-y:auto;padding-inline:16px;padding-block:calc(var(--barh,64px) + 8px) 120px}
+.dwrap{max-width:560px;margin:0 auto;display:grid;gap:14px}
+.dhead{display:flex;align-items:center;gap:10px}
+.dhead h2{font-family:var(--f-display);font-weight:700;font-size:1.6rem;letter-spacing:.05em;text-transform:uppercase;margin:0;flex:1;min-width:0}
+.back{min-height:48px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--raise);font-family:var(--f-display);font-weight:700;font-size:1.1rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:6px 14px}
+.box h3{font-size:.8rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:10px 0 2px}
+dl{margin:0}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);min-height:46px}
+.row:last-child{border-bottom:none}
+dt{color:var(--muted);font-size:.95rem;min-width:0} dd{margin:0;font-family:var(--f-display);font-weight:600;font-size:1.3rem;font-variant-numeric:tabular-nums;text-align:right}
+.row.key dt{color:var(--fg);font-weight:600} .row.key dd{font-size:1.6rem}
+.ev dt{color:var(--fg)} .ev .sg{display:block;font-size:.82rem;color:var(--muted)}
+input[type="time"]{background:var(--raise);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:var(--f-display);font-weight:600;font-size:1.3rem;font-variant-numeric:tabular-nums;min-width:7.2em;text-align:right}
+.stopin{display:grid;grid-template-columns:repeat(auto-fill,minmax(4.6em,1fr));gap:8px;padding:8px 0}
+.stopin label{display:grid;gap:2px;text-align:center}
+.stopin label span{font-size:.75rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stopin label.o2 span{color:var(--o2)}
+.stopin input{width:100%;min-height:44px;background:var(--raise);border:1px solid var(--line);border-radius:8px;text-align:center;font-family:var(--f-display);font-weight:600;font-size:1.3rem;font-variant-numeric:tabular-nums}
+.dnote{font-size:.9rem;color:var(--muted);padding:6px 0 10px}
+.dnote.w{color:var(--warn)} .dnote.c{color:var(--crit)}
+
+#undo{position:fixed;left:16px;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:15;max-width:528px;margin:auto;display:flex;align-items:center;gap:12px;
+  background:var(--fg);color:var(--bg);border-radius:12px;padding:10px 10px 10px 16px;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+#undo span{flex:1;font-weight:600;min-width:0}
+#undo button{min-height:52px;min-width:110px;border-radius:10px;border:none;background:var(--crit);color:var(--on-btn);font-family:var(--f-display);font-weight:700;font-size:1.3rem;letter-spacing:.06em;cursor:pointer}
+#undo i{position:absolute;left:0;bottom:0;height:4px;background:var(--crit);border-radius:0 0 0 12px;width:100%;transform-origin:left}
+#toast{position:fixed;left:16px;right:16px;bottom:calc(90px + env(safe-area-inset-bottom,0px));z-index:16;max-width:528px;margin:auto;background:var(--raise);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:500}
+#edge{position:fixed;inset:0;pointer-events:none;z-index:20}
+#edge.warn{box-shadow:inset 0 0 0 6px var(--warn)}
+#edge.crit,#edge.over{box-shadow:inset 0 0 0 9px var(--crit)}
+@media (prefers-reduced-motion:no-preference){
+  #edge.over{animation:edgeflash .8s steps(2,end) infinite}@keyframes edgeflash{50%{box-shadow:inset 0 0 0 9px transparent}}
+  .sev-over .t-big{animation:pulse 1s steps(2,end) infinite}@keyframes pulse{50%{opacity:.45}}
+  #undo i{animation:drain 10s linear forwards}@keyframes drain{to{transform:scaleX(0)}}
+}
+@media (max-width:380px){.plan{grid-template-columns:4.6em minmax(0,1fr) 4.4em}.seg button{font-size:.95rem}}
+</style>
+</head>
+<body>
+
+<div class="bar" id="bar">
+  <div class="barrow">
+    <h1>OnPanel</h1>
+    <nav class="modesw" aria-label="Diving mode"><a class="chipbtn" href="./" data-mode-go="sat" aria-pressed="false">Sat</a><a class="chipbtn" href="air.html" aria-pressed="true" aria-current="page">Air</a></nav>
+    <span class="clock" id="clock">--:--</span>
+    <button class="chipbtn" id="wake" aria-pressed="false">Screen on</button>
+    <button class="chipbtn" id="test">Test alarm</button>
+  </div>
+  <div id="alerts" aria-live="assertive"></div>
+</div>
+<div id="edge" aria-hidden="true"></div>
+
+<main>
+  <div class="info">
+    <label class="fld"><span>Location</span><input type="text" id="i-loc" data-info="loc" autocomplete="off" placeholder="Site / vessel"></label>
+    <label class="fld c"><span>Dive no.</span><input type="text" id="i-dive" data-info="dive" inputmode="numeric" autocomplete="off" placeholder="–"></label>
+  </div>
+
+  <div class="planbox">
+    <div class="plan">
+      <label class="fld c"><span>Depth msw</span><input type="text" id="p-depth" data-plan="depth" inputmode="decimal" autocomplete="off" placeholder="–"></label>
+      <div class="fld"><span>Gas</span><div class="seg" id="seg-gas"><button data-gas="air">Air</button><button data-gas="nx">Nitrox</button></div></div>
+      <label class="fld c"><span>O₂ %</span><input type="text" id="p-o2" data-plan="o2" inputmode="decimal" autocomplete="off" placeholder="–"></label>
+    </div>
+    <div class="fld"><span>Method</span><div class="seg" id="seg-method"><button data-method="nostop">No-stop</button><button data-method="inwater">In-water</button><button data-method="surdo2">SurDO₂</button></div></div>
+    <div class="fld"><span>Stops</span><div class="seg mode" id="seg-mode"><button data-mode="B">B · From tables</button><button data-mode="A">A · I enter them</button></div></div>
+    <div class="tabnow" id="tabnow"></div>
+  </div>
+  <div class="proto" id="proto"><b>Check against the tables</b><br>Version B reads schedules from the air tables in your rules profile (<span id="proto-name"></span>). Check every schedule against the printed tables before relying on it.</div>
+  <p class="rulesnote" id="rulesnote"></p>
+
+  <div id="tiles"></div>
+  <p class="hint">Tap a tile to stamp the time shown at its foot. Hold a tile, or tap ›, for times, stops and corrections.</p>
+
+  <details class="card" id="tablecard">
+    <summary>Table in use</summary>
+    <div class="tsel"><select id="t-kind" aria-label="Table"><option value="std">Standard Air</option><option value="sur">SurDO₂</option></select><select id="t-depth" aria-label="Table depth"></select></div>
+    <div class="tw" id="tview"></div>
+    <p class="hint" id="tnone" hidden>No air tables in the active rules profile. Load your profile file under Sat › Dive plan › Rules, or paste the tables there.</p>
+    <p class="hint">Highlighted row: the row for the diver who has been down longest. Red rows are beyond the bottom-time limit for that depth.</p>
+  </details>
+
+  <details class="card" id="settings">
+    <summary>Settings &amp; team</summary>
+    <div class="set" id="setform"></div>
+    <p class="hint">Next table and row rule: an exact depth or bottom time moves to the next table and next row (15 m uses the 18 m table, 40 min uses the 45 min row). Turn this off to use the exact table and row instead. Air limits, timings and tables come from the active rules profile (Sat › Dive plan › Rules).</p>
+  </details>
+
+  <details class="card">
+    <summary>Dive log</summary>
+    <div class="actions">
+      <button class="act alt" data-act="save">Save dive &amp; reset</button>
+      <button class="act ghost" data-act="reset">Delete dive</button>
+    </div>
+    <div class="hist" id="hist"></div>
+    <p class="hint">Dives and live times are kept in this browser on this phone only.</p>
+  </details>
+
+  <p class="hint">Backup aid only. The dive control timers, the printed tables and the official dive record take priority. Alarms are reliable only while the app is open and the screen is on. Turn on Screen on during a dive.</p>
+</main>
+
+<section id="detail" hidden aria-modal="true" role="dialog"></section>
+<div id="undo" hidden><span id="undotxt"></span><button id="undobtn">UNDO</button><i></i></div>
+<div id="toast" hidden></div>
+
+<script>
+/* ---------- air rules and tables: from the active rules profile on this phone (Sat › Dive plan › Rules) ----------
+   No company's tables ship with the app.
+   air.std[depth] rows: [bottom min (0 = unlimited), ascent s, one column per stop depth in air.stdStops, total s, repetitive possible 1/0]
+   air.sur[depth] rows: [bottom min, ascent s, one column per stop in air.surStops, surface interval max min, O2 min at chamber depth, chamber ascent min, total s, post-dive interval h]
+   air.ead[actual depth m][O2 % band] = equivalent air depth m
+   air.nostop / air.btLimit: [[depth up to m, minutes], ...] */
+const MODEKEY='onpanel.mode';try{localStorage.setItem(MODEKEY,'air')}catch(e){}
+function loadRules(){try{const s=JSON.parse(localStorage.getItem('diveTimes.plan'));const r=s&&s.profiles&&s.profiles[s.active];
+  return r?{name:r.name||s.active,air:r.air||{}}:null}catch(e){return null}}
+const RULES=loadRules(),AR=(RULES&&RULES.air)||{};
+const objOr=o=>o&&typeof o==='object'&&!Array.isArray(o)?o:{},arrOr=(a,d)=>Array.isArray(a)&&a.length?a:d;
+const STD=objOr(AR.std),SUR=objOr(AR.sur),EAD=objOr(AR.ead);
+const HAS_STD=Object.keys(STD).length>0,HAS_SUR=Object.keys(SUR).length>0,HAS_EAD=Object.keys(EAD).length>0,HAS_TABLES=HAS_STD||HAS_SUR;
+const STD_STOPS=arrOr(AR.stdStops,[18,15,12,9,6,3]),SUR_STOPS=arrOr(AR.surStops,[15,12,9]);
+const HSE=arrOr(AR.btLimit,[]),NOSTOP=arrOr(AR.nostop,[]);
+const fin=v=>v!=null&&v!==''&&isFinite(v);
+// timings: the profile value, or the usual value when the profile leaves it blank (listed as "default" on screen)
+const TDEF={ascentRate:9,siNext:3,siMax:5,o2Period:25,airBreak:5,o2BreakFrom:30,chamberAsc:6,chamberDepth:12};
+const TV=k=>fin(AR[k])?+AR[k]:TDEF[k];
+const ASC_RATE=TV('ascentRate'),SI_NEXT=TV('siNext'),SI_MAX=TV('siMax'),O2_PER=TV('o2Period'),AIR_BRK=TV('airBreak'),O2_BRK_FROM=TV('o2BreakFrom'),CH_ASC=TV('chamberAsc'),CD=TV('chamberDepth');
+const PP_MAX=fin(AR.ppo2Max)?+AR.ppo2Max:null,AIR_MAX=fin(AR.airMax)?+AR.airMax:null;
+const OMITTED=AR.omitted||'Follow your omitted-decompression procedure.';
+const depthsOf=T=>Object.keys(T).map(Number).sort((a,b)=>a-b);
+const STD_D=depthsOf(STD),SUR_D=depthsOf(SUR),EAD_D=depthsOf(EAD);
+const EAD_BANDS=[...new Set(Object.values(EAD).flatMap(r=>Object.keys(objOr(r)).map(Number)))].sort((a,b)=>a-b);
+const nS=()=>STD_STOPS.length,nU=()=>SUR_STOPS.length;
+
+/* ---------- state ---------- */
+const KEY='onpanel.air.v1',MIN=60000,SEC=1000;
+const DEF={info:{loc:'',dive:''},plan:{depth:'',gas:'air',o2:'',method:'inwater',mode:'B'},
+  settings:{strict:true,warnNs:5,warnHse:10,names:{d1:'Diver 1',d2:'Diver 2',sb:'Standby'}},
+  divers:[{id:'d1',person:'',ev:[],depth:'',stopsA:{}},{id:'d2',person:'',ev:[],depth:'',stopsA:{}},{id:'sb',person:'',ev:[]}],history:[]};
+let state=null;
+try{const s=JSON.parse(localStorage.getItem(KEY));if(s&&Array.isArray(s.divers))state=s}catch(e){}
+if(!state)state=JSON.parse(JSON.stringify(DEF));
+state.info={...DEF.info,...state.info};state.plan={...DEF.plan,...state.plan};
+state.settings={...DEF.settings,...state.settings,names:{...DEF.settings.names,...(state.settings||{}).names}};
+function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){}}
+
+const P=()=>state.plan,S=()=>state.settings;
+const pad=n=>String(n).padStart(2,'0');
+const clock=ms=>{const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())};
+const clockS=ms=>clock(ms)+':'+pad(new Date(ms).getSeconds());
+// m:ss under an hour, h:mm:ss above
+function ms2(ms){const t=Math.floor(Math.abs(ms)/1000),h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60;return h?h+':'+pad(m)+':'+pad(s):m+':'+pad(s)}
+const secs=s=>Math.floor(s/60)+':'+pad(s%60);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:null};
+const D=id=>state.divers.find(d=>d.id===id);
+const nameOf=id=>S().names[id]||id;
+const divers=()=>state.divers.filter(d=>d.id!=='sb');
+const evT=(d,type)=>d.ev.find(e=>e.type===type);
+const fmtD=d=>(Math.round(d*10)/10)+'';
+
+/* ---------- table logic ---------- */
+// table depth: next greater (strict) or equal-or-greater
+function pickDepth(list,d){const s=S().strict;return list.find(x=>s?x>d:x>=d)}
+const rowBT=r=>r[0]||Infinity;
+function pickRow(rows,bt){const s=S().strict;return rows.findIndex(r=>s?rowBT(r)>bt:rowBT(r)>=bt)}
+// bottom time in whole minutes used for the table. Strict: difference of the clock minutes (matches the paper record),
+// and the row must be greater than it, so the row is always longer than the true time. Exact mode: true time rounded up.
+function btMin(ls,end){return S().strict?Math.floor(end/MIN)-Math.floor(ls/MIN):Math.ceil((end-ls)/MIN)}
+// the moment the bottom time moves past a row of `bt` minutes
+function rowEnds(ls,bt){return S().strict?Math.floor(ls/MIN)*MIN+bt*MIN:ls+bt*MIN}
+const hseLimit=d=>{const r=HSE.find(([x])=>d<=x);return r?r[1]:null};
+const nsLimitA=d=>{const r=NOSTOP.find(([x])=>d<=x);return r?r[1]:null};
+
+function gasInfo(depth){const p=P();
+  if(depth==null)return{err:'Enter the depth'};
+  if(p.gas==='air'){const g={label:'Air',tdepth:depth};if(AIR_MAX!=null&&depth>AIR_MAX)g.warn=`Air is limited to ${fmtD(AIR_MAX)} msw`;return g}
+  const o2=num(p.o2);if(o2==null)return{err:'Enter the nitrox O₂ %'};
+  const pp=(depth/10+1)*o2/100,g={label:'Nitrox '+fmtD(o2)+'%',o2,pp};
+  if(PP_MAX!=null&&pp>PP_MAX+1e-9)g.warn=`ppO₂ ${pp.toFixed(2)} bar is over ${PP_MAX} at ${fmtD(depth)} m`;
+  if(o2<=21||o2>=100){g.err='Enter a nitrox O₂ % between 22 and 99';return g}
+  // no EAD table: version A shows the formula EAD (rounded up) for information; version B needs the table
+  if(!HAS_EAD){if(p.mode==='B'){g.err='No EAD table in the rules profile';return g}
+    const e=Math.max(0,Math.ceil(((depth+10)*(1-o2/100)/0.79-10)*10)/10);g.ead=e;g.eadF=true;g.tdepth=e;g.note='EAD by formula (no EAD table loaded): check against your tables';return g}
+  const dMax=EAD_D.at(-1),bMin=EAD_BANDS[0],bMax=EAD_BANDS.at(-1);
+  if(depth>dMax){g.err=`Nitrox is limited to ${fmtD(dMax)} msw (no EAD table deeper)`;return g}
+  if(o2<bMin||o2>=bMax+1){g.err=`No EAD table for ${fmtD(o2)}% O₂ (tables cover ${bMin}–${bMax}.9%)`;return g}
+  if(depth<EAD_D[0]){g.tdepth=depth;g.ead=null;g.note=`EAD table starts at ${fmtD(EAD_D[0])} m: actual depth used`;return g}
+  const ed=EAD_D.find(x=>x>=depth),row=EAD[String(ed)],v=row&&row[String(Math.floor(o2))];
+  if(v==null){g.err=`EAD table has no value for ${fmtD(o2)}% at ${fmtD(ed)} m (ppO₂ too high)`;return g}
+  g.ead=v;g.tdepth=v;return g}
+
+// look up the schedule from the tables for this depth and bottom time (bump = rows further down, for a long surface interval)
+function lookup(depth,bt,bump=0){const g=gasInfo(depth);if(g.err)return{err:g.err,g};
+  const sur=P().method==='surdo2',T=sur?SUR:STD;
+  if(!(sur?HAS_SUR:HAS_STD))return{err:`No ${sur?'SurDO₂':'Standard Air'} table in the rules profile`,g};
+  const td=pickDepth(sur?SUR_D:STD_D,g.tdepth);
+  if(td==null)return{err:`Deeper than the ${sur?'SurDO₂':'Standard Air'} tables`,g};
+  const rows=T[String(td)];let idx=pickRow(rows,bt);
+  if(idx<0)return{err:`${bt} min is beyond the ${td} m ${sur?'SurDO₂':'Standard Air'} table`,g,td};
+  idx+=bump;if(idx>=rows.length)return{err:`No longer row on the ${td} m table`,g,td};
+  const r=rows[idx],n=sur?nU():nS(),L={g,td,rows,idx,r,sur,bt:rowBT(r),asc:r[1],tot:r[sur?5+n:2+n]};
+  L.stops=(sur?SUR_STOPS:STD_STOPS).map((dep,i)=>({depth:dep,min:r[2+i]})).filter(s=>s.min>0);
+  if(sur){L.si=r[2+n];L.o2=r[3+n];L.chAsc=r[4+n];L.pdi=r[6+n]}else L.rep=!!r[3+n];
+  L.ns=rowBT(T[String(td)][0]);if(sur){const sd=pickDepth(STD_D,g.tdepth);L.nsStd=sd!=null&&STD[String(sd)]?rowBT(STD[String(sd)][0]):null}
+  return L}
+const tblName=L=>`${L.sur?'SurDO₂':'Std Air'} ${fmtD(L.td)} m / ${L.bt===Infinity?'unl.':L.bt} min`;
+
+/* ---------- per-diver schedule ---------- */
+const depthOf=d=>{const v=num(d.depth);return v!=null?v:num(P().depth)};
+function sched(d,now){const p=P(),depth=depthOf(d),ls=evT(d,'ls'),lb=evT(d,'lb'),sur=p.method==='surdo2';
+  const o={depth,sur,g:gasInfo(depth),notes:[]};
+  if(ls)o.bt=btMin(ls.t,lb?lb.t:now);
+  if(p.mode==='B'){
+    if(!ls){o.L=null;return o}
+    let L=lookup(depth,o.bt);
+    // slow ascent (under 9 m/min) to the first stop or surface: add the delay to bottom time
+    if(lb&&!L.err){const first=d.ev.find(e=>e.t>=lb.t&&(e.type==='as'||e.type==='su'));
+      if(first){const to=first.type==='as'?first.depth:0,dist=Math.max(0,depth-to),late=first.t-lb.t-dist/ASC_RATE*MIN;
+        if(late>0){o.delay=Math.ceil(late/MIN);const L2=lookup(depth,o.bt+o.delay);
+          if(!L2.err&&L2.idx!==L.idx){o.notes.push({c:'w',t:`Slow ascent: ${o.delay} min added to bottom time, table moves to ${tblName(L2)}`});L=L2}
+          else if(L2.err){o.notes.push({c:'c',t:'Slow ascent delay takes the dive off the table: '+L2.err})}}}}
+    // SurDO2 surface interval over the limit: next longer table
+    if(sur&&!L.err){const si=siOf(d,now);if(si!=null&&si>SI_NEXT*MIN&&si<=SI_MAX*MIN){const L2=lookup(depth,o.bt+(o.delay||0),1);
+      if(!L2.err){o.notes.push({c:'w',t:`Surface interval over ${SI_NEXT}:00: O₂ from next longer row ${tblName(L2)}`});o.o2Bump=L2}
+      else o.notes.push({c:'c',t:`Surface interval over ${SI_NEXT}:00 and no longer row: `+L2.err})}}
+    o.L=L;if(L.err){o.err=L.err;o.stops=[];return o}
+    o.stops=L.stops;o.asc=L.asc;o.o2=(o.o2Bump||L).o2;return o}
+  // version A: the supervisor enters the stops
+  const A=d.stopsA||{};o.stops=(sur?SUR_STOPS:STD_STOPS).map(dep=>({depth:dep,min:num(A[dep])||0})).filter(s=>s.min>0);
+  if(p.method==='nostop')o.stops=[];
+  if(sur)o.o2=num(A.o2)||0;
+  if(depth!=null){const to=o.stops[0]?o.stops[0].depth:0;o.asc=Math.ceil(Math.max(0,depth-to)/12*60)}
+  return o}
+
+/* ---------- stamping and phases ---------- */
+const LAB={ls:'Left surface',ad:'At depth',lb:'Leave bottom',su:'Arrive surface',c12:`At ${CD} m on O₂`,air:'On air (break)',o2:'Back on O₂',ca:'Start chamber ascent',cs:'Chamber at surface',in:'In water',out:'Out of water',end:'Dive ended'};
+const labOf=a=>a.type==='as'?`Arrive ${a.depth} m`:a.type==='lv'?`Leave ${a.depth} m`:LAB[a.type];
+function isDone(d){const l=d.ev.at(-1);if(!l)return false;return l.type==='end'||l.type==='cs'||(l.type==='su'&&P().method!=='surdo2')}
+function nextAct(d,now){if(d.id==='sb'){const l=d.ev.at(-1);return{type:!l||l.type==='out'?'in':'out'}}
+  if(isDone(d))return null;const l=d.ev.at(-1);if(!l)return{type:'ls'};
+  const sc=sched(d,now),stops=sc.stops||[];
+  switch(l.type){
+    case 'ls':return{type:'ad'};
+    case 'ad':return{type:'lb'};
+    case 'lb':return stops[0]?{type:'as',depth:stops[0].depth}:{type:'su'};
+    case 'as':return{type:'lv',depth:l.depth};
+    case 'lv':{const n=stops.find(s=>s.depth<l.depth);return n?{type:'as',depth:n.depth}:{type:'su'}}
+    case 'su':return{type:'c12'};
+    case 'c12':case 'o2':return o2calc(d,sc,now).left<=0?{type:'ca'}:{type:'air'};
+    case 'air':return{type:'o2'};
+    case 'ca':return{type:'cs'}}
+  return null}
+function siOf(d,now){const su=evT(d,'su');if(!su)return null;const c=evT(d,'c12');return(c?c.t:now)-su.t}
+// O2 at chamber depth: counted from arriving until chamber ascent starts, air breaks not counted
+function o2calc(d,sc,now){const i0=d.ev.findIndex(e=>e.type==='c12');const target=(sc.o2||0)*MIN;
+  if(i0<0)return{on:0,left:target,target};let on=0,segStart=null,airStart=null;
+  for(let i=i0;i<d.ev.length;i++){const e=d.ev[i],end=i+1<d.ev.length?d.ev[i+1].t:now;
+    if(e.type==='c12'||e.type==='o2'){on+=end-e.t;segStart=e.t;airStart=null}
+    else if(e.type==='air'){airStart=e.t}
+    if(e.type==='ca'||e.type==='cs'||e.type==='end')break}
+  const r={on,left:target-on,target,segStart,airStart,breaks:d.ev.filter(e=>e.type==='air').length};
+  // planned O2 period / air break pattern for O2 times at or over the profile threshold
+  const brk=target>=O2_BRK_FROM*MIN;r.brk=brk;
+  if(brk&&segStart!=null&&airStart==null){const segOn=now-segStart,leftAtSeg=r.left+segOn;if(leftAtSeg>O2_PER*MIN)r.breakAt=segStart+O2_PER*MIN}
+  let t=airStart!=null?airStart+AIR_BRK*MIN:now,rem=Math.max(0,r.left),segEl=airStart!=null?0:(segStart!=null?now-segStart:0);
+  while(rem>0){const chunk=brk?Math.min(rem,Math.max(0,O2_PER*MIN-segEl)):rem;t+=chunk;rem-=chunk;if(rem>0){t+=AIR_BRK*MIN;segEl=0}}
+  r.endAt=t;return r}
+
+let undoInfo=null,undoTimer=null,early=null;
+function stamp(id){const d=D(id),now=Date.now(),a=nextAct(d,now);
+  if(!a){toast(`${nameOf(id)}: dive finished. Hold the tile for details.`);return}
+  if(id!=='sb'&&!state.divers.find(x=>x.id===id))return;
+  // guard against leaving a stop or finishing O2 early: first tap warns, second tap within 4 s stamps
+  const sc=id==='sb'?null:sched(d,now);
+  if(sc){let short=0,what='';
+    if(a.type==='lv'){const st=stopInfo(d,sc,now);if(st&&st.leaveAt-now>0){short=st.leaveAt-now;what=`${a.depth} m stop`}}
+    if(a.type==='ca'){const o=o2calc(d,sc,now);if(o.left>0){short=o.left;what='O₂'}}
+    if(short>1000&&!(early&&early.id===id&&early.type===a.type&&Date.now()<early.until)){
+      early={id,type:a.type,until:Date.now()+4000};buzz();toast(`${nameOf(id)}: ${what} has ${ms2(short)} left. Tap again within 4 s to stamp anyway.`);tick();return}}
+  early=null;const e={type:a.type,t:now};if(a.depth!=null)e.depth=a.depth;d.ev.push(e);save();
+  undoInfo={id,len:d.ev.length,t:now};showUndo(`${nameOf(id)}: ${labOf(e)} ${clock(now)}`);
+  if(P().mode==='A'&&a.type==='lb'&&P().method!=='nostop'&&!(sched(d,now).stops||[]).length&&!(P().method==='surdo2'&&num((d.stopsA||{}).o2)))
+    setTimeout(()=>{openDetail(id);toast('Enter the stops for this dive')},300)}
+function buzz(){try{navigator.vibrate&&navigator.vibrate([80,60,80])}catch(e){}}
+function showUndo(msg){try{navigator.vibrate&&navigator.vibrate(40)}catch(e){}
+  document.getElementById('undotxt').textContent=msg;const u=document.getElementById('undo');u.hidden=true;void u.offsetWidth;u.hidden=false;
+  const bar=u.querySelector('i');bar.style.animation='none';void bar.offsetWidth;bar.style.animation='';
+  clearTimeout(undoTimer);undoTimer=setTimeout(()=>{u.hidden=true;undoInfo=null},10000);render()}
+document.getElementById('undobtn').addEventListener('click',()=>{if(!undoInfo)return;const d=D(undoInfo.id);
+  if(d.ev.length===undoInfo.len&&d.ev.at(-1).t===undoInfo.t){d.ev.pop();save();toast('Stamp removed')}
+  undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;render()});
+
+// current stop: when its clock starts (first stop: not before the table ascent time is up) and when to leave
+// (the last minute of each stop is the travel to the next stop or the surface)
+function stopInfo(d,sc,now){const l=d.ev.at(-1);if(!l||l.type!=='as')return null;
+  const st=(sc.stops||[]).find(s=>s.depth===l.depth);if(!st)return{depth:l.depth,min:0,start:l.t,leaveAt:l.t,missing:true};
+  const lb=evT(d,'lb'),firstAs=d.ev.find(e=>e.type==='as');let start=l.t;
+  if(firstAs===l&&lb&&sc.asc!=null)start=Math.max(l.t,lb.t+sc.asc*SEC);
+  return{depth:st.depth,min:st.min,start,leaveAt:start+(st.min-1)*MIN}}
+
+/* ---------- tiles ---------- */
+function renderTiles(){
+  document.getElementById('tiles').innerHTML=state.divers.map(p=>`<div class="tile" data-tile="${p.id}" role="button" tabindex="0">
+    <div class="t-top"><div class="t-title"><span class="t-name">${esc(nameOf(p.id))}</span><span class="chip" data-k="chip"></span><input class="t-person" type="text" data-person="${p.id}" value="${esc(p.person||'')}" placeholder="Name" autocomplete="off" autocapitalize="words" aria-label="${esc(nameOf(p.id))} name" hidden></div><button class="more" data-act="detail" data-who="${p.id}" aria-label="Details for ${esc(nameOf(p.id))}">›</button></div>
+    <div class="t-row"><div class="t-cell"><div class="t-lab" data-k="lab"></div><div class="t-big" data-k="big"></div></div><div class="t-x" data-k="x"></div></div>
+    <div class="t-sub" data-k="sub"></div><div data-k="steps"></div>
+    <div class="t-foot" data-k="foot"></div></div>`).join('')}
+function put(root,k,html){const el=root.querySelector(`[data-k="${k}"]`);if(el&&el.innerHTML!==html)el.innerHTML=html}
+function sevOf(rem,w,c){if(rem<=0)return 'over';if(rem<=c)return 'crit';if(rem<=w)return 'warn';return 'ok'}
+const cell=(l,v)=>`<div class="t-cell"><div class="t-lab">${l}</div><div class="t-val">${v}</div></div>`;
+function stepsHtml(d,sc){const stops=sc.stops||[];if(!stops.length&&!sc.sur)return '';
+  const l=d.ev.at(-1),cur=l&&(l.type==='as'||l.type==='lv')?l.depth:null,lb=!!evT(d,'lb');
+  const doneD=new Set(d.ev.filter(e=>e.type==='lv').map(e=>e.depth));
+  let h=stops.map(s=>`<i class="${doneD.has(s.depth)?'done':cur===s.depth?'now':''}">${s.depth} m · ${s.min}</i>`).join('');
+  if(sc.sur&&sc.o2)h+=`<i class="o2${evT(d,'ca')?' done':''}">O₂ ${CD} m · ${sc.o2}</i>`;
+  return h?`<div class="steps">${lb?'':'<i>If up now:</i>'}${h}</div>`:''}
+
+function paintTile(id,now){const el=document.querySelector(`.tile[data-tile="${id}"]`);if(!el)return;const d=D(id);
+  let chip='',lab='',big='–:––',sub='',cls='',x=[],steps='';const a=nextAct(d,now);
+  const isEarly=early&&early.id===id&&a&&early.type===a.type&&Date.now()<early.until;
+  let foot=a?`<span class="ft tapbtn${isEarly?' early':''}">${isEarly?'Tap again ▸':'Tap ▸'} <b>${labOf(a)}</b></span>`:'';
+  {const pi=el.querySelector('.t-person'),show=!d.ev.length;if(pi&&pi.hidden!==!show)pi.hidden=!show}
+  const l=d.ev.at(-1);
+  if(id==='sb'){
+    const ins=d.ev.filter(e=>e.type==='in');
+    if(!l){lab='Not deployed'}
+    else if(l.type==='in'){cls='sev-wait';chip='In water '+clock(l.t);lab='Standby in water';big=ms2(now-l.t)}
+    else{lab='Last in water';big=ms2(l.t-d.ev.at(-2).t);sub=`deployed ${ins.length}× · out ${clock(l.t)}`}
+  } else {
+    const sc=sched(d,now),p=P(),ls=evT(d,'ls');
+    if(!l){lab='Ready';cls='';const pre=planLine(d);sub=pre}
+    else if(isDone(d)){cls='sev-done';const end=l.t;chip='Finished '+clock(end);lab='Left surface → finished';big=ms2(end-ls.t);
+      sub=`bottom time ${sc.bt} min${sc.L&&!sc.err?' · '+tblName(sc.L):''}`;foot='<span class="ft">Dive finished · hold for details</span>'}
+    else if(l.type==='ls'||l.type==='ad'){
+      chip=(l.type==='ls'?'Descending ':'At depth ')+clock(l.t);lab='Bottom time';big=ms2(now-ls.t);
+      const al=bottomAlarms(d,sc,now);cls=al.cls||'sev-ok';x=al.cells;sub=al.sub;steps=stepsHtml(d,sc)}
+    else if(l.type==='lb'){const to=(sc.stops||[])[0];chip='Left bottom '+clock(l.t);
+      lab=to?`Ascent to ${to.depth} m`:'Ascent to surface';big=ms2(now-l.t);cls='sev-wait';
+      if(sc.asc!=null)x=[cell('Travel time',secs(sc.asc)),cell('Bottom time',sc.bt+' min')];
+      sub=noteHtml(sc);steps=stepsHtml(d,sc)}
+    else if(l.type==='as'){const st=stopInfo(d,sc,now);chip=`At ${l.depth} m `+clock(l.t);
+      if(st.missing){cls='sev-crit';lab='Stop not on schedule';big=ms2(now-l.t);sub='This stop is not in the current schedule. Check the table.'}
+      else{const rem=st.leaveAt-now,wait=st.start>now;
+        lab=wait?`Stop clock starts in`:rem>0?`Leave ${l.depth} m in`:`Leave ${l.depth} m now`;big=wait?ms2(st.start-now):(rem>0?'':'+')+ms2(rem);
+        cls=wait?'sev-wait':rem<=0?'sev-crit':rem<=60*SEC?'sev-warn':'sev-ok';
+        x=[cell('Stop',st.min+' min'),cell('Leave at',clockS(st.leaveAt))];
+        sub=(wait?'Arrived early: stop timing starts when the table ascent time is up. ':'')+noteHtml(sc)}
+      steps=stepsHtml(d,sc)}
+    else if(l.type==='lv'){const n=a&&a.type==='as'?a.depth:null;chip=`Left ${l.depth} m `+clock(l.t);
+      lab=n?`Travel to ${n} m`:'Travel to surface';big=ms2(now-l.t);cls='sev-wait';sub=noteHtml(sc);steps=stepsHtml(d,sc)}
+    else if(l.type==='su'){const si=now-l.t;chip='Surfaced '+clock(l.t);lab='Surface interval';big=ms2(si);
+      cls=si>SI_MAX*MIN?'sev-over':si>SI_NEXT*MIN?'sev-crit':si>(SI_NEXT-1)*MIN?'sev-warn':'sev-ok';
+      x=[cell(si>SI_NEXT*MIN?SI_MAX+':00 at':SI_NEXT+':00 at',clockS(l.t+(si>SI_NEXT*MIN?SI_MAX:SI_NEXT)*MIN))];
+      sub=si>SI_MAX*MIN?`<span class="c">Over ${SI_MAX}:00: omitted decompression. ${esc(OMITTED)}</span>`:si>SI_NEXT*MIN?`<span class="w">Over ${SI_NEXT}:00: use the next longer table time.</span>`:`Blow down to ${CD} m on O₂`}
+    else if(['c12','o2','air'].includes(l.type)){const o=o2calc(d,sc,now);
+      if(l.type==='air'){const rem=o.airStart+AIR_BRK*MIN-now;chip='Air break '+clock(l.t);lab=rem>0?'Back on O₂ in':'Back on O₂ now';big=(rem>0?'':'+')+ms2(rem);
+        cls=rem<=0?'sev-crit':'sev-warn';x=[cell('O₂ left',ms2(Math.max(0,o.left))),cell('O₂ ends',clock(o.endAt))]}
+      else{chip=(l.type==='c12'?`At ${CD} m `:'On O₂ ')+clock(l.t);
+        if(o.left>0){lab='O₂ remaining';big=ms2(o.left);cls='sev-o2';
+          x=[cell(o.breakAt?'Air break at':'Air breaks',o.breakAt?clock(o.breakAt):(o.brk?'none left':'none')),cell('O₂ ends',clock(o.endAt))];
+          if(o.breakAt&&o.breakAt<=now){cls='sev-warn';lab='Air break due · O₂ remaining'}}
+        else{lab='O₂ complete';big='+'+ms2(-o.left);cls='sev-crit';x=[cell('O₂ time',sc.o2+' min')]}}
+      sub=`SI ${ms2(siOf(d,now))} · O₂ ${ms2(o.on)} of ${sc.o2||'?'} min${o.breaks?' · '+o.breaks+' air break'+(o.breaks>1?'s':''):''}`+(noteHtml(sc)?'<br>'+noteHtml(sc):'')}
+    else if(l.type==='ca'){const rem=l.t+CH_ASC*MIN-now;chip='Chamber ascent '+clock(l.t);lab=rem>0?'Chamber at surface in':'Chamber at surface';big=(rem>0?'':'+')+ms2(rem);
+      cls=rem<=0?'sev-warn':'sev-o2';x=[cell(`${CD} m → 0`,`${CH_ASC} min on O₂`)]}
+    if(sc.err&&l&&!isDone(d)){cls='sev-crit';sub=`<span class="c">${esc(sc.err)}</span>`}
+  }
+  const pressing=el.classList.contains('pressing')?' pressing':'';const c='tile '+cls+pressing;if(el.className!==c)el.className=c;
+  put(el,'chip',chip);put(el,'lab',lab);put(el,'big',big);put(el,'sub',sub);put(el,'x',x.map(v=>v).join(''));put(el,'steps',steps);put(el,'foot',foot)}
+function noteHtml(sc){return(sc.notes||[]).map(n=>`<span class="${n.c}">${esc(n.t)}</span>`).join('<br>')}
+function planLine(d){const p=P(),depth=depthOf(d);if(depth==null)return 'Enter the depth above';const g=gasInfo(depth);
+  if(g.err)return `<span class="c">${esc(g.err)}</span>`;
+  let s=`${fmtD(depth)} m · ${g.label}${g.ead!=null?' · EAD '+g.ead+' m'+(g.eadF?' (formula)':''):''}`;
+  if(p.mode==='B'){const L=lookup(depth,0);if(!L.err)s+=` · no-stop limit ${L.ns===Infinity?'none':L.ns+' min'} (${fmtD(L.td)} m table)`}
+  else{const n=nsLimitA(depth);s+=n?` · no-stop limit ${n} min`:''}
+  const h=hseLimit(depth);if(h&&p.method!=='nostop')s+=` · bottom-time limit ${h} min`;
+  return s+(g.warn?`<br><span class="w">${esc(g.warn)}</span>`:'')}
+
+// bottom phase: no-stop limit, bottom-time limit, current table row and when it changes
+function bottomAlarms(d,sc,now){const p=P(),ls=evT(d,'ls').t,depth=sc.depth,cells=[],out={cells,alerts:[]};let worst='ok';
+  const W=S().warnNs*MIN,H=S().warnHse*MIN,rank={ok:0,warn:1,crit:2,over:3},bump=s=>{if(rank[s]>rank[worst])worst=s};
+  let ns=null;
+  if(p.mode==='B'&&sc.L&&!sc.err){const L0=lookup(depth,0);if(!L0.err&&L0.ns!==Infinity)ns=rowEnds(ls,L0.ns)}
+  else if(p.mode==='A'&&depth!=null){const n=nsLimitA(depth);if(n)ns=rowEnds(ls,n)}
+  if(ns!=null){const rem=ns-now;cells.push(cell(rem>0?'No-stop ends':'No-stop passed',clock(ns)));
+    if(p.method==='nostop'){const s=sevOf(rem,W,2*MIN);bump(s);out.alerts.push({s,label:'No-stop limit',target:ns})}}
+  const h=depth!=null?hseLimit(depth):null;
+  if(h){const t=ls+h*MIN,rem=t-now;cells.push(cell('Bottom-time limit',clock(t)));const s=sevOf(rem,H,Math.min(H,5*MIN));bump(s);out.alerts.push({s,label:'Bottom-time limit',target:t})}
+  else if(depth!=null&&HSE.length)cells.push(cell('Bottom-time limit','beyond table'));
+  if(p.mode==='B'&&sc.L&&!sc.err){const L=sc.L,ends=L.bt===Infinity?null:rowEnds(ls,L.bt);
+    out.sub=`Now: ${tblName(L)} · ${L.stops.length?'deco':'no stops'}${L.sur?' · O₂ '+L.o2+' min':''} · total ${secs(L.tot)}`+(ends?`<br>Next row in ${ms2(ends-now)} (at ${clock(ends)})`:'');
+    if(ends&&ends-now<=60*SEC&&ends>now)out.sub+=' <span class="w">· row changing</span>'}
+  else if(p.mode==='A')out.sub=sc.stops&&sc.stops.length?'Stops entered: '+sc.stops.map(s=>s.depth+' m '+s.min).join(', '):(p.method==='nostop'?'No-stop dive':'No stops entered yet · hold the tile to enter them');
+  out.cls='sev-'+worst;return out}
+
+/* ---------- detail panel ---------- */
+let openWho=null;
+function openDetail(id){openWho=id;renderDetail();const dd=document.getElementById('detail');dd.hidden=false;dd.scrollTop=0;document.body.style.overflow='hidden'}
+function closeDetail(){openWho=null;document.getElementById('detail').hidden=true;document.body.style.overflow='';render()}
+const fig=(k,label,cls='')=>`<div class="row ${cls}"><dt>${label}</dt><dd data-k="${k}">–</dd></div>`;
+function renderDetail(){if(!openWho)return;const id=openWho,d=D(id),now=Date.now(),p=P();
+  const rows=d.ev.map((e,i)=>`<div class="row ev"><dt><label for="ev-${i}">${labOf(e)}</label><span class="sg" data-k="sg${i}"></span></dt>
+    <dd><input type="time" id="ev-${i}" data-i="${i}" value="${clock(e.t)}"></dd></div>`).join('')||`<p class="hint" style="padding:10px 0">No times yet. Go back and tap the tile to stamp the first one.</p>`;
+  let top='';
+  if(id!=='sb'){const sc=sched(d,now);
+    top+=`<div class="box"><h3>This diver</h3><div class="set" style="padding:6px 0 10px"><label for="d-depth">Max depth msw (blank = plan ${esc(p.depth||'–')})</label><input type="text" inputmode="decimal" id="d-depth" data-ddepth="${id}" value="${esc(d.depth||'')}"></div>
+      <dl>${fig('dg','Gas')}${fig('dt','Table')}${fig('dbt','Bottom time')}${fig('dst','Schedule')}${fig('dtot','Total decompression')}</dl><div data-k="dnotes"></div></div>`;
+    if(p.mode==='A'&&p.method!=='nostop'){const A=d.stopsA||{},list=p.method==='surdo2'?SUR_STOPS:STD_STOPS;
+      top+=`<div class="box"><h3>Stops (minutes) · version A</h3><div class="stopin">${list.map(dep=>`<label><span>${dep} m</span><input type="text" inputmode="numeric" data-stop="${dep}" value="${esc(A[dep]??'')}" placeholder="–"></label>`).join('')}
+        ${p.method==='surdo2'?`<label class="o2"><span>O₂ ${CD} m</span><input type="text" inputmode="numeric" data-stop="o2" value="${esc(A.o2??'')}" placeholder="–"></label>`:''}</div>
+        <p class="dnote">From your table. The app times each stop from arrival; the last minute of each stop is the travel to the next.</p></div>`}}
+  const done=isDone(d),a=nextAct(d,now);
+  document.getElementById('detail').innerHTML=`<div class="dwrap">
+    <div class="dhead"><button class="back" data-act="close">‹ Back</button><h2>${esc(nameOf(id))}${d.person?' · '+esc(d.person):''}</h2></div>
+    ${top}
+    <div class="box"><h3>Times · tap a time to correct it</h3><dl>${rows}</dl></div>
+    <div class="actions">${a?`<button class="act" data-act="dstamp">Stamp now: ${labOf(a)}</button>`:''}
+    ${d.ev.length&&!done&&id!=='sb'?`<button class="act fin" data-act="dend">End dive here</button>`:''}
+    ${d.ev.length?`<button class="act ghost" data-act="dundo">Delete last time</button>`:''}</div></div>`;
+  paintDetail(now)}
+function paintDetail(now){if(!openWho||openWho==='sb')return;const root=document.getElementById('detail'),d=D(openWho),sc=sched(d,now);
+  const g=sc.g||{};put(root,'dg',g.err?'–':g.label+(g.ead!=null?' · EAD '+g.ead+' m':''));
+  put(root,'dt',sc.L&&!sc.err?tblName(sc.L):P().mode==='A'?'entered (A)':'–');
+  put(root,'dbt',sc.bt!=null?sc.bt+' min'+(sc.delay?' +'+sc.delay+' delay':''):'–');
+  const st=(sc.stops||[]).map(s=>s.depth+' m '+s.min).join(', ');
+  put(root,'dst',(st||'no stops')+(sc.sur&&sc.o2?' · O₂ '+sc.o2:''));
+  put(root,'dtot',sc.L&&!sc.err?secs(sc.L.tot):(P().mode==='A'&&sc.stops&&sc.stops.length?sc.stops.reduce((a,x)=>a+x.min,0)+' min in stops':'–'));
+  const n=[...(sc.notes||[]).map(x=>`<p class="dnote ${x.c}">${esc(x.t)}</p>`)];
+  if(sc.err)n.push(`<p class="dnote c">${esc(sc.err)}</p>`);if(g.warn)n.push(`<p class="dnote w">${esc(g.warn)}</p>`);if(g.note)n.push(`<p class="dnote">${esc(g.note)}</p>`);
+  if(sc.L&&!sc.err)n.push(`<p class="dnote">${sc.sur?'Post-dive interval '+sc.L.pdi+' h':'Repetitive dive '+(sc.L.rep?'possible':'not possible')}</p>`);
+  put(root,'dnotes',n.join(''))}
+
+function editTime(i,val){const d=D(openWho),e=d.ev[i];if(!val||!e)return;const [h,m]=val.split(':').map(Number);
+  let best=null;for(const off of[-1,0,1]){const x=new Date(e.t);x.setDate(x.getDate()+off);x.setHours(h,m,0,0);if(best==null||Math.abs(x-e.t)<Math.abs(best-e.t))best=x.getTime()}
+  if((i>0&&best<d.ev[i-1].t)||(i<d.ev.length-1&&best>d.ev[i+1].t)){toast('That time is out of order with the times around it');renderDetail();return}
+  if(best>Date.now()+60000){toast('That time is in the future');renderDetail();return}
+  e.t=best;save();renderDetail();tick();toast('Time corrected')}
+
+/* ---------- alarms ---------- */
+const fired=new Set(),acked=new Set(),lastRing={};
+function tick(){const now=Date.now();document.getElementById('clock').textContent=clockS(now);
+  state.divers.forEach(d=>paintTile(d.id,now));paintDetail(now);paintPlan(now);
+  const alerts=[];
+  for(const d of divers()){const l=d.ev.at(-1);if(!l||isDone(d))continue;const sc=sched(d,now),nm=nameOf(d.id);
+    if(sc.err&&(l.type==='ls'||l.type==='ad'||l.type==='lb'))alerts.push({id:d.id,key:'err|'+sc.err,s:'crit',txt:sc.err});
+    if(l.type==='ls'||l.type==='ad'){for(const a of bottomAlarms(d,sc,now).alerts){if(a.s==='ok')continue;const rem=a.target-now;
+      alerts.push({id:d.id,key:a.label+'|'+a.target+'|'+a.s,s:a.s,rep:a.s==='over',txt:a.s==='over'?`${a.label} passed by ${ms2(rem)}`:`${a.label} in ${ms2(rem)} (${clock(a.target)})`})}}
+    if(l.type==='as'){const st=stopInfo(d,sc,now);if(st&&!st.missing&&st.start<=now){const rem=st.leaveAt-now;
+      if(rem<=0)alerts.push({id:d.id,key:'lv|'+l.t,s:'crit',txt:`Leave ${st.depth} m now`});
+      else if(rem<=60*SEC)alerts.push({id:d.id,key:'lv1|'+l.t,s:'warn',txt:`Leave ${st.depth} m in ${ms2(rem)}`})}}
+    if(l.type==='su'&&P().method==='surdo2'){const si=now-l.t;
+      if(si>SI_MAX*MIN)alerts.push({id:d.id,key:'si5|'+l.t,s:'over',rep:true,txt:`Surface interval over ${SI_MAX}:00: omitted decompression. ${OMITTED}`});
+      else if(si>SI_NEXT*MIN)alerts.push({id:d.id,key:'si3|'+l.t,s:'crit',txt:`Surface interval over ${SI_NEXT}:00: next longer table`});
+      else if(si>(SI_NEXT-1)*MIN)alerts.push({id:d.id,key:'si2|'+l.t,s:'warn',txt:`Surface interval ${ms2(si)}: ${SI_NEXT}:00 at ${clockS(l.t+SI_NEXT*MIN)}`})}
+    if(['c12','o2'].includes(l.type)){const o=o2calc(d,sc,now);
+      if(o.left<=0)alerts.push({id:d.id,key:'o2done|'+evT(d,'c12').t,s:'crit',txt:'O₂ complete: start chamber ascent'});
+      else if(o.breakAt&&o.breakAt<=now)alerts.push({id:d.id,key:'brk|'+o.breakAt,s:'warn',txt:`Air break due (${O2_PER} min on O₂)`})}
+    if(l.type==='air'){const rem=l.t+AIR_BRK*MIN-now;if(rem<=0)alerts.push({id:d.id,key:'bo2|'+l.t,s:'crit',txt:'Air break over: back on O₂'})}
+    if(l.type==='ca'&&now-l.t>=CH_ASC*MIN)alerts.push({id:d.id,key:'cs|'+l.t,s:'warn',txt:`${CH_ASC} min chamber ascent done: stamp chamber at surface`})}
+  let html='',edge=0;const RANK={warn:1,crit:2,over:3};
+  for(const a of alerts){const key=a.id+'|'+a.key;
+    if(!fired.has(key)){fired.add(key);lastRing[key]=now;ring(a.s)}
+    else if(a.rep&&!acked.has(key)&&now-lastRing[key]>60000){lastRing[key]=now;ring(a.s)}
+    edge=Math.max(edge,a.s==='over'&&acked.has(key)?2:RANK[a.s]);
+    html+=`<div class="alert ${a.s}"><span data-act="detail" data-who="${a.id}">${esc(nameOf(a.id))}: ${esc(a.txt)}</span>${a.rep&&!acked.has(key)?`<button data-act="ack" data-key="${key}">Silence</button>`:''}</div>`}
+  const al=document.getElementById('alerts');if(al.innerHTML!==html)al.innerHTML=html;
+  const eg=document.getElementById('edge'),ec=['','warn','crit','over'][edge];if(eg.className!==ec)eg.className=ec;
+  document.documentElement.style.setProperty('--barh',document.getElementById('bar').offsetHeight+'px')}
+
+let ac=null;
+function unlock(){if(!ac){try{ac=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(ac&&ac.state==='suspended')ac.resume()}
+document.addEventListener('pointerdown',unlock,{passive:true});
+function tone(f,t,dd){const o=ac.createOscillator(),g=ac.createGain();o.type='square';o.frequency.value=f;g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(.25,t+.01);g.gain.exponentialRampToValueAtTime(.0001,t+dd);o.connect(g).connect(ac.destination);o.start(t);o.stop(t+dd+.02)}
+function notify(level){try{if(!document.hidden||!('Notification'in window)||Notification.permission!=='granted'||!navigator.serviceWorker)return;
+  const msg=[...document.querySelectorAll('#alerts .alert span')].map(x=>x.textContent).join('\n')||'Check OnPanel';
+  navigator.serviceWorker.ready.then(r=>r.showNotification('OnPanel air: '+({info:'Info',warn:'Warning',crit:'Warning',over:'OVERDUE'}[level]),{body:msg,tag:'air-'+level,renotify:true,requireInteraction:level==='over',vibrate:[300,120,300,120,300]}))}catch(e){}}
+function ring(level){setTimeout(()=>notify(level),50);const n={info:1,warn:2,crit:3,over:5}[level],f={info:660,warn:880,crit:1175,over:1320}[level];
+  if(ac){const t=ac.currentTime+.02;for(let i=0;i<n;i++)tone(f,t+i*.28,.18)}
+  try{navigator.vibrate&&navigator.vibrate(Array.from({length:n*2-1},(_,i)=>i%2?120:260))}catch(e){}}
+
+/* ---------- plan bar and table viewer ---------- */
+function leadDiver(){let best=null;for(const d of divers()){const ls=evT(d,'ls');if(ls&&(!best||ls.t<evT(best,'ls').t))best=d}return best}
+function paintPlan(now){const p=P(),el=document.getElementById('tabnow');
+  document.getElementById('p-o2').disabled=p.gas!=='nx';
+  if(p.mode==='B'&&!HAS_TABLES){p.mode='A';save();renderPlan()}
+  document.getElementById('proto').hidden=p.mode!=='B';document.getElementById('proto-name').textContent=RULES?RULES.name:'';
+  {const mb=document.querySelector('#seg-mode [data-mode="B"]');if(mb)mb.disabled=!HAS_TABLES}
+  {const rn=document.getElementById('rulesnote');let t;
+    if(!RULES)t='<b>No rules profile loaded.</b> Version A only: enter the stops from your printed tables. Load your profile under Sat › Dive plan › Rules.';
+    else{const miss=[],dflt=[];if(!HAS_STD)miss.push('Standard Air table');if(!HAS_SUR)miss.push('SurDO₂ table');if(!HAS_EAD)miss.push('EAD table');
+      if(!HSE.length)miss.push('bottom-time limits');if(!NOSTOP.length&&!HAS_STD)miss.push('no-stop limits');if(PP_MAX==null)miss.push('nitrox ppO₂ max');if(AIR_MAX==null)miss.push('air depth limit');
+      const TN={ascentRate:'ascent rate',siNext:'surface interval',siMax:'surface interval max',o2Period:'O₂ period',airBreak:'air break',o2BreakFrom:'air breaks from',chamberAsc:'chamber ascent',chamberDepth:'chamber depth'};
+      for(const k in TDEF)if(!fin(AR[k]))dflt.push(TN[k]);
+      t=`Rules: <b>${esc(RULES.name)}</b>`+(miss.length?` · not set: ${miss.join(', ')}`:'')+(dflt.length?` · usual timings used for: ${dflt.join(', ')}`:'')}
+    if(rn.innerHTML!==t)rn.innerHTML=t;rn.classList.toggle('w',!RULES||!HAS_TABLES)}
+  const depth=num(p.depth);let h='';
+  if(depth==null)h='Enter the planned depth';
+  else{const g=gasInfo(depth);
+    if(g.err)h=`<span>${esc(g.err)}</span>`;
+    else if(p.mode==='B'){const L=lookup(depth,0);
+      h=L.err?esc(L.err):`${g.label}${g.ead!=null?` · EAD ${g.ead} m${g.eadF?' (formula)':''}`:''} → ${L.sur?'SurDO₂':'Std Air'} ${fmtD(L.td)} m table<small>No-stop limit ${L.sur?(L.nsStd==null?'–':L.nsStd===Infinity?'none':L.nsStd+' min'):(L.ns===Infinity?'none':L.ns+' min')} · bottom-time limit ${mins(hseLimit(depth))}${g.warn?' · '+esc(g.warn):''}</small>`}
+    else h=`${g.label}${g.ead!=null?` · EAD ${g.ead} m${g.eadF?' (formula)':''}`:''} · stops entered per diver<small>No-stop limit ${mins(nsLimitA(depth))} · bottom-time limit ${mins(hseLimit(depth))}${g.warn?' · '+esc(g.warn):''}</small>`;
+    if(g.warn&&!g.err)el.classList.add('err');}
+  el.classList.toggle('err',depth!=null&&(!!gasInfo(depth).err||!!gasInfo(depth).warn));
+  if(el.innerHTML!==h)el.innerHTML=h;
+  if(document.getElementById('tablecard').open)paintTable(now)}
+const mins=v=>v==null?'not set':v+' min';
+let tview={kind:null,depth:null};
+function paintTable(now){const kindSel=document.getElementById('t-kind'),depSel=document.getElementById('t-depth'),p=P();
+  document.getElementById('tnone').hidden=HAS_TABLES;document.querySelector('#tablecard .tsel').hidden=!HAS_TABLES;
+  if(!HAS_TABLES){document.getElementById('tview').innerHTML='';return}
+  for(const o of kindSel.options)o.disabled=o.value==='sur'?!HAS_SUR:!HAS_STD;
+  if(tview.kind==null){tview.kind=(p.method==='surdo2'&&HAS_SUR)||!HAS_STD?'sur':'std';const g=gasInfo(num(p.depth));const td=g&&!g.err?pickDepth(tview.kind==='sur'?SUR_D:STD_D,g.tdepth):null;tview.depth=td??(tview.kind==='sur'?SUR_D[0]:STD_D[0])}
+  const list=tview.kind==='sur'?SUR_D:STD_D;if(!list.includes(tview.depth))tview.depth=list[0];
+  kindSel.value=tview.kind;const opts=list.map(x=>`<option value="${x}">${fmtD(x)} m</option>`).join('');if(depSel.dataset.k!==tview.kind){depSel.innerHTML=opts;depSel.dataset.k=tview.kind}depSel.value=String(tview.depth);
+  const rows=(tview.kind==='sur'?SUR:STD)[String(tview.depth)];
+  const lead=leadDiver();let cur=-1;
+  if(lead){const sc=sched(lead,now);if(sc.L&&!sc.err&&sc.L.td===tview.depth&&(sc.L.sur===(tview.kind==='sur')))cur=sc.L.idx}
+  const hse=hseLimit(tview.depth);
+  const hd=tview.kind==='sur'?['Bottom','Ascent',...SUR_STOPS.map(x=>x+' m'),'SI <',`O₂ ${CD} m`,`O₂ ${CD}–0`,'Total','PDI']:['Bottom','Ascent',...STD_STOPS.map(x=>x+' m'),'Total','Rep'];
+  const body=rows.map((r,i)=>{const n=tview.kind==='sur'?nU():nS(),cells=tview.kind==='sur'
+      ?[r[0],secs(r[1]),...r.slice(2,2+n).map(v=>v||'–'),r[2+n],`<td class="o2">${r[3+n]}</td>`,`<td class="o2">${r[4+n]}</td>`,secs(r[5+n]),r[6+n]+'h']
+      :[r[0]||'Unl.',secs(r[1]),...r.slice(2,2+n).map(v=>v||'–'),secs(r[2+n]),r[3+n]?'Yes':'No'];
+    const over=hse!=null&&r[0]>hse;
+    return `<tr class="${i===cur?'cur':''}${over?' hse':''}">${cells.map(c=>String(c).startsWith('<td')?c:`<td>${c}</td>`).join('')}</tr>`}).join('');
+  const html=`<table class="tb"><thead><tr>${hd.map(x=>`<th>${x}</th>`).join('')}</tr></thead><tbody>${body}</tbody></table>`;
+  const tv=document.getElementById('tview');if(tv.innerHTML!==html)tv.innerHTML=html}
+document.getElementById('t-kind').addEventListener('change',e=>{tview.kind=e.target.value;const L=tview.kind==='sur'?SUR_D:STD_D;tview.depth=L[0];paintTable(Date.now())});
+document.getElementById('t-depth').addEventListener('change',e=>{tview.depth=Number(e.target.value);paintTable(Date.now())});
+document.getElementById('tablecard').addEventListener('toggle',()=>{tview.kind=null;paintTable(Date.now())});
+
+/* ---------- tap vs hold ---------- */
+let holdT=null,held=false,sx=0,sy=0,pressEl=null;
+function endPress(){clearTimeout(holdT);holdT=null;if(pressEl)pressEl.classList.remove('pressing');pressEl=null}
+document.addEventListener('pointerdown',e=>{const t=e.target.closest('.tile');if(!t||e.target.closest('.more,input'))return;
+  held=false;sx=e.clientX;sy=e.clientY;pressEl=t;t.classList.add('pressing');
+  holdT=setTimeout(()=>{held=true;const id=t.dataset.tile;endPress();try{navigator.vibrate&&navigator.vibrate([30,40,30])}catch(e){}openDetail(id)},600)});
+document.addEventListener('pointermove',e=>{if(holdT&&(Math.abs(e.clientX-sx)>12||Math.abs(e.clientY-sy)>12))endPress()},{passive:true});
+['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,endPress));
+document.addEventListener('contextmenu',e=>{if(e.target.closest('.tile'))e.preventDefault()});
+document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.tile');if(t&&(e.key==='Enter'||e.key===' ')&&e.target===t){e.preventDefault();stamp(t.dataset.tile)}});
+
+/* ---------- clicks ---------- */
+function okFlash(b,text,after){const orig=b.innerHTML;b.classList.add('okflash');b.textContent=text;
+  setTimeout(()=>{b.classList.add('okfade');b.classList.remove('okflash')},1000);
+  setTimeout(()=>{b.innerHTML=orig;b.classList.remove('okfade');if(after)after()},1800)}
+function confirm2(btn,msg){if(btn.dataset.armed==='1'){btn.dataset.armed='';btn.innerHTML=btn.dataset.orig;btn.classList.remove('armed');return true}
+  btn.dataset.armed='1';btn.dataset.orig=btn.innerHTML;btn.textContent=msg;btn.classList.add('armed');
+  setTimeout(()=>{if(btn.isConnected&&btn.dataset.armed==='1'){btn.dataset.armed='';btn.innerHTML=btn.dataset.orig;btn.classList.remove('armed')}},3500);return false}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>t.hidden=true,3500)}
+const live=()=>state.divers.some(d=>d.ev.length&&!isDone(d)&&!(d.id==='sb'&&d.ev.at(-1).type==='out'));
+
+document.addEventListener('click',async e=>{
+  const seg=e.target.closest('.seg button');
+  if(seg){const p=P();
+    if(seg.dataset.gas){p.gas=seg.dataset.gas;if(p.gas==='nx'&&!p.o2)setTimeout(()=>document.getElementById('p-o2').focus(),0)}
+    if(seg.dataset.method)p.method=seg.dataset.method;
+    if(seg.dataset.mode){p.mode=seg.dataset.mode;toast(p.mode==='B'?'Version B: stops come from the tables in your rules profile':'Version A: hold a diver tile to enter the stops')}
+    tview.kind=null;save();render();return}
+  const b=e.target.closest('[data-act]');
+  if(!b){if(e.target.closest('input,select'))return;const t=e.target.closest('.tile');if(t){if(held){held=false;return}stamp(t.dataset.tile)}return}
+  const act=b.dataset.act;
+  if(act==='detail'){openDetail(b.dataset.who);return}
+  if(act==='close'){closeDetail();return}
+  if(act==='dstamp'){stamp(openWho);renderDetail();return}
+  if(act==='dend'){if(!confirm2(b,'Tap again to end'))return;D(openWho).ev.push({type:'end',t:Date.now()});save();render();renderDetail();toast('Dive ended');return}
+  if(act==='dundo'){if(!confirm2(b,'Tap again to delete'))return;D(openWho).ev.pop();save();render();renderDetail();toast('Last time deleted');return}
+  if(act==='ack'){acked.add(b.dataset.key);tick();return}
+  if(act==='save'){if(b.classList.contains('okflash'))return;if(!state.divers.some(d=>d.ev.length)){toast('Nothing to save yet');return}
+    if(live()&&!confirm2(b,'Confirm'))return;
+    state.history.unshift({at:Date.now(),text:logText()});state.history=state.history.slice(0,30);
+    if(/^\s*\d+\s*$/.test(state.info.dive||''))state.info.dive=String(parseInt(state.info.dive,10)+1);
+    {const ps=state.divers,names=ps.map(d=>d.person);ps.forEach((d,i)=>{d.person=names[(i+1)%names.length]})}
+    resetDive();okFlash(b,'Saved and reset');return}
+  if(act==='reset'){if(b.classList.contains('okflash'))return;if(!confirm2(b,'Confirm'))return;resetDive();okFlash(b,'Dive deleted');return}
+  if(act==='share'||act==='copy'||act==='delrun'){if(b.classList.contains('okflash'))return;
+    const i=+b.dataset.i,txt=state.history[i].text;if(act==='delrun'&&!confirm2(b,'Confirm'))return;
+    if(act==='delrun'){okFlash(b,'Deleted',()=>{state.history.splice(i,1);save();renderHist()});return}
+    if(act==='copy'){try{await navigator.clipboard.writeText(txt);okFlash(b,'Copied')}
+      catch(err){const r=document.createRange();r.selectNodeContents(document.getElementById('h'+i));const sel=getSelection();sel.removeAllRanges();sel.addRange(r);toast('Selected: use Copy from the menu')}return}
+    try{if(!navigator.share)throw 0;await navigator.share({title:'Air dive log',text:txt});okFlash(b,'Shared');return}catch(err){if(err&&err.name==='AbortError')return}
+    const row=document.getElementById('sh'+i);row.hidden=!row.hidden;return}});
+
+document.addEventListener('change',e=>{const el=e.target;
+  if(el.matches('#detail input[type="time"]')){editTime(+el.dataset.i,el.value);return}
+  if(el.dataset.ddepth){const d=D(el.dataset.ddepth),v=el.value.trim();if(v&&num(v)==null){toast('Enter the depth in metres, e.g. 22');el.value=d.depth||'';return}d.depth=v;save();renderDetail();tick();return}
+  if(el.dataset.stop){const d=D(openWho),v=el.value.trim();if(v&&!(num(v)>=0)){toast('Enter minutes, e.g. 5');el.value=(d.stopsA||{})[el.dataset.stop]??'';return}
+    d.stopsA=d.stopsA||{};if(v)d.stopsA[el.dataset.stop]=v;else delete d.stopsA[el.dataset.stop];save();paintDetail(Date.now());tick();return}
+  if(el.dataset.set){const k=el.dataset.set,kind=el.dataset.kind;let v;
+    if(kind==='b')v=el.checked;else{v=Math.round(+el.value);if(!(v>=1&&v<=60)){toast('Enter minutes from 1 to 60');el.value=S()[k];return}}
+    S()[k]=v;save();el.blur();render();return}
+  if(el.dataset.name){S().names[el.dataset.name]=el.value.trim()||S().names[el.dataset.name];save();el.blur();render()}});
+document.addEventListener('input',e=>{const t=e.target,ds=t.dataset||{};
+  if(ds.person){D(ds.person).person=t.value.trim();save();return}
+  if(ds.info){state.info[ds.info]=t.value.trim();save();return}
+  if(ds.plan){P()[ds.plan]=t.value.trim();save();tview.kind=null;tick();return}});
+
+/* ---------- log ---------- */
+function logText(){const now=Date.now(),p=P(),I=state.info;
+  const first=Math.min(...state.divers.filter(d=>d.ev.length).map(d=>d.ev[0].t),now);
+  const dfmt=t=>new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});
+  const meth={nostop:'No-stop',inwater:'In-water decompression',surdo2:'Surface decompression on O2 (SurDO2)'}[p.method];
+  let s=`AIR DIVE LOG\nDate: ${dfmt(first)}\nLocation: ${I.loc||'-'}\nDive no.: ${I.dive||'-'}\nMethod: ${meth}\nGas: ${p.gas==='air'?'Air':'Nitrox '+(p.o2||'?')+'% O2'}\n`;
+  s+=`Schedule: ${p.mode==='B'?'from '+(RULES?RULES.name:'rules profile')+' tables (version B)':'stops entered by supervisor (version A)'}\n`;
+  s+='Team: '+state.divers.map(d=>`${nameOf(d.id)} ${d.person||'-'}`).join(', ')+'\n';
+  for(const d of divers()){const who=nameOf(d.id)+(d.person?` (${d.person})`:'');s+=`\n${who.toUpperCase()}\n`;
+    if(!d.ev.length){s+='Did not dive\n';continue}
+    const sc=sched(d,now),g=sc.g||{};
+    s+=`Max depth: ${sc.depth!=null?fmtD(sc.depth)+' msw':'-'}${g.ead!=null?' · EAD '+g.ead+' msw':''}\n`;
+    if(sc.L&&!sc.err)s+=`Table used: ${tblName(sc.L)}${sc.o2Bump?' (O2 from '+tblName(sc.o2Bump)+')':''}\n`;
+    else if(p.mode==='A')s+=`Stops entered: ${(sc.stops||[]).map(x=>x.depth+' m '+x.min+' min').join(', ')||'none'}${sc.sur?' · O2 '+(sc.o2||0)+' min':''}\n`;
+    for(const e of d.ev){let t=`${clock(e.t)}  ${labOf(e).replace('₂','2')}`;
+      if(e.type==='lb'&&sc.bt!=null)t+=` (bottom time ${sc.bt} min${sc.delay?', +'+sc.delay+' min slow ascent':''})`;
+      if(e.type==='c12'){const si=siOf(d,now);t+=` (surface interval ${ms2(si)})`}
+      s+=t+'\n'}
+    const ls=evT(d,'ls'),l=d.ev.at(-1);
+    if(sc.sur&&evT(d,'c12')){const o=o2calc(d,sc,now);s+=`O2 at ${CD} m: ${ms2(o.on)} of ${sc.o2} min, air breaks ${o.breaks}\n`}
+    s+=`Left surface to ${isDone(d)?'finish':'now'}: ${ms2((isDone(d)?l.t:now)-ls.t)}${isDone(d)?'':' (dive not finished)'}\n`;
+    for(const n of sc.notes||[])s+=`Note: ${n.t.replace(/₂/g,'2')}\n`;
+    if(sc.err)s+=`Note: ${sc.err.replace(/₂/g,'2')}\n`}
+  const sb=D('sb');s+=`\n${nameOf('sb').toUpperCase()}${sb.person?' ('+sb.person+')':''}\n`;
+  s+=sb.ev.length?sb.ev.map(e=>`${clock(e.t)}  ${LAB[e.type]}`).join('\n')+'\n':'Not deployed\n';
+  return s.replace(/₂/g,'2').trim()}
+function resetDive(){undoInfo=null;clearTimeout(undoTimer);document.getElementById('undo').hidden=true;state.divers.forEach(d=>{d.ev=[];if(d.id!=='sb'){d.depth='';d.stopsA={}}});fired.clear();acked.clear();save();render()}
+function renderSettings(){const s=S(),f=document.getElementById('setform');if(f.contains(document.activeElement))return;
+  const n=(k,l)=>`<label for="s-${k}">${l}</label><input type="number" min="1" max="60" id="s-${k}" data-set="${k}" data-kind="n" value="${s[k]}">`;
+  f.innerHTML=`<label for="s-strict">Exact depth/time uses next table and row</label><input type="checkbox" id="s-strict" data-set="strict" data-kind="b" ${s.strict?'checked':''}>`
+    +n('warnNs','No-stop warning (min before)')+n('warnHse','Bottom-time limit warning (min before)')
+    +['d1','d2','sb'].map(id=>`<label for="n-${id}">Tile name (${{d1:'diver 1',d2:'diver 2',sb:'standby'}[id]})</label><input type="text" class="name" id="n-${id}" data-name="${id}" value="${esc(nameOf(id))}">`).join('')}
+function renderHist(){const h=document.getElementById('hist');
+  h.innerHTML=state.history.length?state.history.map((r,i)=>{const enc=encodeURIComponent(r.text),subj=encodeURIComponent('Air dive log '+new Date(r.at).toLocaleDateString('en-GB'));
+    return `<div class="run"><div class="h">${esc(new Date(r.at).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'}))}</div>
+    <pre id="h${i}">${esc(r.text)}</pre>
+    <div class="ra"><button class="chipbtn" data-act="share" data-i="${i}">Share</button><button class="chipbtn" data-act="copy" data-i="${i}">Copy</button><button class="chipbtn del" data-act="delrun" data-i="${i}">Delete</button></div>
+    <div class="ra" id="sh${i}" hidden><a class="chipbtn" href="https://wa.me/?text=${enc}" target="_blank" rel="noopener">WhatsApp</a><a class="chipbtn" href="https://mail.google.com/mail/?view=cm&amp;su=${subj}&amp;body=${enc}" target="_blank" rel="noopener">Gmail</a></div></div>`}).join('')
+  :'<p class="hint">No saved dives yet. When the dive is finished, tap Save dive &amp; reset.</p>'}
+function renderPlan(){const p=P();
+  document.querySelectorAll('[data-plan],[data-info]').forEach(el=>{if(el!==document.activeElement)el.value=(el.dataset.plan?p[el.dataset.plan]:state.info[el.dataset.info])||''});
+  document.querySelectorAll('#seg-gas button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.gas===p.gas)));
+  document.querySelectorAll('#seg-method button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.method===p.method)));
+  document.querySelectorAll('#seg-mode button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===p.mode)))}
+function render(){renderPlan();renderTiles();renderSettings();renderHist();tick()}
+
+let wl=null,wantWake=false;const wb=document.getElementById('wake');
+async function getWake(){try{wl=await navigator.wakeLock.request('screen');wl.addEventListener('release',()=>{wl=null;wb.setAttribute('aria-pressed','false')});wb.setAttribute('aria-pressed','true')}
+  catch(e){wantWake=false;wb.setAttribute('aria-pressed','false');toast('Screen-on was refused. Set screen timeout to 30 min in phone settings.')}}
+wb.addEventListener('click',async()=>{if(wantWake){wantWake=false;if(wl)await wl.release();wl=null;wb.setAttribute('aria-pressed','false')}else{wantWake=true;await getWake()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){if(wantWake&&!wl)getWake();tick()}});
+document.getElementById('test').addEventListener('click',async()=>{unlock();ring('crit');toast('If you heard nothing, check the phone volume');
+  try{if('Notification'in window&&Notification.permission==='default')await Notification.requestPermission()}catch(e){}});
+
+// Sat/Air switch: while an air dive is live, the first tap warns (alarms only ring on the screen that is open)
+document.querySelector('[data-mode-go="sat"]').addEventListener('click',e=>{const b=e.currentTarget;
+  if(live()&&!confirm2(b,'Dive live · tap again')){e.preventDefault();toast('Air dive alarms only ring while this screen is open');return}
+  try{localStorage.setItem(MODEKEY,'sat')}catch(err){}});
+if('serviceWorker'in navigator){const hadSW=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadSW&&!reloaded){reloaded=true;location.reload()}});
+  window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{})})}).catch(()=>{}))}
+
+render();setInterval(tick,1000);
+</script>
+
+</body>
+</html>

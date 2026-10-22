@@ -72,7 +72,9 @@ button,input{font:inherit;color:inherit}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;margin-inline:-16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line);display:grid;gap:6px}
 .barrow,#alerts{max-width:560px;width:100%;margin:0 auto}
 .barrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.bar h1{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.06em;text-transform:uppercase;margin:0;flex:1}
+.bar h1{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.06em;text-transform:uppercase;margin:0}
+.modesw{display:flex;gap:4px;flex:1}
+.modesw a{text-decoration:none;color:var(--fg);font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px}
 .clock{font-family:var(--f-display);font-weight:600;font-size:1.6rem;font-variant-numeric:tabular-nums}
 .chipbtn{border:1px solid var(--line);background:var(--raise);border-radius:999px;padding:6px 12px;font-size:.85rem;cursor:pointer}
 .chipbtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -203,6 +205,7 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
 <div class="bar" id="bar">
   <div class="barrow">
     <h1>OnPanel</h1>
+    <nav class="modesw" aria-label="Diving mode"><a class="chipbtn" href="./" aria-pressed="true" aria-current="page">Sat</a><a class="chipbtn" href="air.html" data-mode-go="air" aria-pressed="false">Air</a></nav>
     <span class="clock" id="clock">--:--</span>
     <button class="chipbtn" id="wake" aria-pressed="false">Screen on</button>
     <button class="chipbtn" id="test">Test alarm</button>
@@ -244,6 +247,8 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
 <div id="toast" hidden></div>
 
 <script>
+// open on the screen last used (Sat or Air)
+try{if(localStorage.getItem('onpanel.mode')==='air')location.replace('air.html')}catch(e){}
 const KEY='diveTimes.v2',OLD='diveTimes.v1',MIN=60000;
 const DEF={info:{loc:'',dive:'',depth:''},settings:{bell:480,breakDue:240,minBreak:15,maxWater:360,warn:30,crit:10,diver3:false,bellman:false},
   bell:[],divers:[{id:'d1',name:'Diver 1',ev:[]},{id:'d2',name:'Diver 2',ev:[]},{id:'d3',name:'Diver 3',ev:[]},{id:'bm',name:'Bellman',ev:[]}],history:[]};
@@ -575,6 +580,11 @@ if('serviceWorker'in navigator){const hadSW=!!navigator.serviceWorker.controller
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{})})}).catch(()=>{}))}
 
+// Sat/Air switch: while a sat run is live, the first tap warns (alarms only ring on the screen that is open)
+document.querySelector('[data-mode-go="air"]').addEventListener('click',e=>{const b=e.currentTarget;
+  const live=['off','on'].includes(bcalc(Date.now()).phase)||inWater().length>0;
+  if(live&&!confirm2(b,'Run live · tap again')){e.preventDefault();toast('Sat run alarms only ring while this screen is open');return}
+  try{localStorage.setItem('onpanel.mode','air')}catch(err){}});
 render();setInterval(tick,1000);
 </script>
 <script src="plan.js"></script>

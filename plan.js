@@ -19,8 +19,11 @@ const BLANK={v:1,name:'',notes:'',
   envelope:{diveMin:null,diveMax:null,storMin:null,storMax:null,heatFrom:null},
   reclaim:{suction:null},
   tubes:[],
-  refs:{pp:'',co2:'',bailout:'',obg:'',o2:'',standoff:'',drop:'',envelope:'',exc:'',cobra:'',tubes:''},
-  tables:{exc:[],cobraMix:[],cobraP:[],cobraDur:[]}};
+  refs:{pp:'',co2:'',bailout:'',obg:'',o2:'',standoff:'',drop:'',envelope:'',exc:'',cobra:'',tubes:'',air:''},
+  tables:{exc:[],cobraMix:[],cobraP:[],cobraDur:[]},
+  // air diving (used by the Air screen, air.html)
+  air:{ppo2Max:null,airMax:null,ascentRate:null,siNext:null,siMax:null,o2Period:null,airBreak:null,o2BreakFrom:null,chamberAsc:null,chamberDepth:null,
+    omitted:'',stdStops:[],surStops:[],std:{},sur:{},ead:{},nostop:[],btLimit:[]}};
 const clone=o=>JSON.parse(JSON.stringify(o));
 function deepMerge(base,over){if(Array.isArray(base))return Array.isArray(over)?over:base;
   if(base&&typeof base==='object'){const r={};for(const k of Object.keys(base))r[k]=deepMerge(base[k],over?over[k]:undefined);
@@ -315,6 +318,10 @@ const RF=[ // [path,label,unit]
  ['drop.green','Bell drop: bubble loss OK up to','%'],['drop.amber','Bell drop: bubble loss amber up to','%'],['drop.bellAtm','Bell atmosphere ppO2 for drop check','bar'],
  ['envelope.diveMin','Diving depth min','msw'],['envelope.diveMax','Diving depth max','msw'],['envelope.storMin','Storage min','msw'],['envelope.storMax','Storage max','msw'],['envelope.heatFrom','Gas heating from','msw'],
  ['reclaim.suction','Reclaim suction','inHg']];
+const ARF=[ // air diving limits and timings
+ ['air.airMax','Air depth limit','msw'],['air.ppo2Max','Nitrox ppO2 max','bar'],['air.ascentRate','Ascent rate','m/min'],
+ ['air.siNext','SurDO2 surface interval: next longer table after','min'],['air.siMax','SurDO2 surface interval: omitted decompression after','min'],
+ ['air.chamberDepth','SurDO2 chamber O2 depth','msw'],['air.o2Period','SurDO2 O2 period','min'],['air.airBreak','SurDO2 air break','min'],['air.o2BreakFrom','SurDO2 air breaks when O2 time at least','min'],['air.chamberAsc','SurDO2 chamber ascent','min']];
 const getp=(o,p)=>p.split('.').reduce((a,k)=>a==null?a:a[k],o);
 const setp=(o,p,v)=>{const k=p.split('.');const last=k.pop();k.reduce((a,x)=>a[x],o)[last]=v};
 function rulesHtml(){const r=R(),ids=Object.keys(P.profiles);
@@ -333,13 +340,38 @@ function rulesHtml(){const r=R(),ids=Object.keys(P.profiles);
     ${tbl('cobraMix','COBRA gas mix',r.tables.cobraMix.length,'4 columns per row: depth msw, min O2 %, optimum O2 %, max O2 %.')}
     ${tbl('cobraDur','COBRA durations',r.tables.cobraDur.length,'First row: the charge pressures in bar (first cell blank or "depth"). Then one row per depth: depth msw, then minutes at each pressure.')}
     <p class="hint">Copy the rows from Excel or Google Sheets and paste. Every row is checked before it is accepted.</p></div>
+   <div class="box"><h3>Air diving</h3><div class="set">${ARF.map(([p,l,u])=>`<label for="rf-${p}">${l} <span class="hint" style="display:inline">${u}</span></label><input id="rf-${p}" data-rf="${p}" inputmode="decimal" value="${getp(r,p)??''}">`).join('')}
+    <label for="rf-omit">Omitted decompression action</label><input id="rf-omit" class="wide" data-pr="air.omitted" value="${esc(r.air.omitted||'')}" placeholder="e.g. treat on table X"></div>
+    <p class="hint">Blank timings use the usual values (ascent 9 m/min, surface interval 3 and 5 min, O2 at 12 m in 25 min periods with 5 min air breaks from 30 min, 6 min chamber ascent) and the Air screen says so. Blank limits are skipped.</p>
+    ${tbl('airStd','Standard Air table',Object.keys(r.air.std).length,'First row: headings with the stop depths as numbers, e.g. "depth bottom ascent 18 15 12 9 6 3 total rep". Then one row per schedule: table depth, bottom time min (0 = unlimited), ascent s, minutes at each stop, total s, repetitive 1 or 0.',' table depths')}
+    ${tbl('airSur','SurDO2 table',Object.keys(r.air.sur).length,'First row: headings with the in-water stop depths as numbers, e.g. "depth bottom ascent 15 12 9 si o2 chamber total pdi". Then one row per schedule: table depth, bottom time min, ascent s, minutes at each stop, max surface interval min, O2 min, chamber ascent min, total s, post-dive interval h.',' table depths')}
+    ${tbl('airEad','EAD table',Object.keys(r.air.ead).length,'First row: "depth" then the O2 % bands, e.g. "depth 30 31 32 ... 50". Then one row per actual depth: depth, then the equivalent air depth for each band ("-" where there is none).',' depths')}
+    ${tbl('airNs','No-stop limits',r.air.nostop.length,'2 columns per row: depth up to msw, no-stop minutes. Used for version A (stops entered by hand).')}
+    ${tbl('airBt','Bottom-time limits',r.air.btLimit.length,'2 columns per row: depth up to msw, maximum bottom time min.')}</div>
    <div class="box"><h3>Dräger tubes</h3><textarea id="pr-tubes" data-pa="tubes" placeholder="One tube per line:  name | range | max mbar (blank = any reading counts)">${esc(r.tubes.map(t=>[t.name,t.range||'',t.kind==='mbar'?t.max:''].join(' | ')).join('\n'))}</textarea>
     <div class="actions"><button class="act alt" data-pa="savetubes">Save tubes</button></div></div>`;
   return h}
-const tbl=(k,label,n,help)=>`<div style="margin:10px 0"><b>${label}</b> <span class="hint" style="display:inline">${n?n+' rows loaded':'none loaded'}</span>
+const tbl=(k,label,n,help,unit=' rows')=>`<div style="margin:10px 0"><b>${label}</b> <span class="hint" style="display:inline">${n?n+unit+' loaded':'none loaded'}</span>
   <p class="hint">${help}</p><textarea data-tbl="${k}" placeholder="Paste here"></textarea><div class="actions"><button class="act alt" data-pa="tbl" data-k="${k}">Load ${label.toLowerCase()}</button>${n?`<button class="act ghost" data-pa="tblclear" data-k="${k}">Clear</button>`:''}</div></div>`;
 function parseRows(txt){return txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>l.split(/\t|,|;|\s{2,}|\s+/).map(c=>c.replace(/msw|%|bar|min/gi,'').trim()).filter(c=>c!==''))}
-function loadTable(k,txt){const r=R(),rows=parseRows(txt);if(!rows.length)return 'Nothing pasted';
+function loadAir(k,txt){const r=R(),A=r.air,rows=txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>l.split(/\t|,|;|\s+/).map(c=>c.trim()).filter(c=>c!==''));
+  if(!rows.length)return 'Nothing pasted';const isN=c=>c!=='-'&&isFinite(+c);
+  if(k==='airNs'||k==='airBt'){const body=rows.map(x=>x.map(Number));
+    for(const [i,x] of body.entries())if(x.length!==2||x.some(v=>!isFinite(v)))return `Row ${i+1} needs 2 numbers: "${rows[i].join(' ')}"`;
+    A[k==='airNs'?'nostop':'btLimit']=body.sort((a,b)=>a[0]-b[0]);return null}
+  const head=rows[0];if(head.every(isN))return 'First row must be the headings';
+  if(k==='airEad'){const bands=head.slice(1).map(Number);if(!bands.length||bands.some(v=>!isFinite(v)))return 'Headings: "depth" then the O2 % bands';
+    const out={};for(const [i,x] of rows.slice(1).entries()){if(x.length!==bands.length+1||!isN(x[0]))return `Row ${i+2} needs a depth plus ${bands.length} values ("-" for none)`;
+      const o={};for(const [j,b] of bands.entries()){const c=x[j+1];if(isN(c))o[String(b)]=+c;else if(c!=='-')return `Row ${i+2}: "${c}" is not a number or "-"`}
+      if(out[String(+x[0])])return 'A depth appears twice';out[String(+x[0])]=o}
+    if(!Object.keys(out).length)return 'No rows under the headings';A.ead=out;return null}
+  const stops=head.filter(isN).map(Number),n=stops.length,w=k==='airStd'?5+n:8+n;
+  const out={};for(const [i,x] of rows.slice(1).entries()){const v=x.map(Number);if(v.length!==w||v.some(z=>!isFinite(z)))return `Row ${i+2} needs ${w} numbers: "${x.join(' ')}"`;
+    (out[String(v[0])]=out[String(v[0])]||[]).push(v.slice(1))}
+  if(!Object.keys(out).length)return 'No rows under the headings';
+  for(const d in out)out[d].sort((a,b)=>(a[0]||Infinity)-(b[0]||Infinity));
+  if(k==='airStd'){A.std=out;A.stdStops=stops}else{A.sur=out;A.surStops=stops}return null}
+function loadTable(k,txt){if(k.startsWith('air'))return loadAir(k,txt);const r=R(),rows=parseRows(txt);if(!rows.length)return 'Nothing pasted';
   if(k==='cobraDur'){const Ps=rows[0].filter(c=>!isNaN(+c)).map(Number);const body=rows.slice(1).map(x=>x.map(Number));
     if(Ps.length<2)return 'First row must list the charge pressures';
     for(const [i,x] of body.entries())if(x.length!==Ps.length+1||x.some(v=>!isFinite(v)))return `Row ${i+2} needs a depth plus ${Ps.length} durations`;
@@ -476,7 +508,7 @@ document.addEventListener('click',async e=>{const b=e.target.closest('[data-pa]'
   if(a==='del'){if(!confirm2(b,'Tap again to delete'))return;delete P.profiles[P.active];P.active=Object.keys(P.profiles)[0]||'';psave();paint();summary();return}
   if(a==='export'){exportProfile();return}
   if(a==='tbl'){const k=b.dataset.k,ta=sec.querySelector(`[data-tbl="${k}"]`),err=loadTable(k,ta.value);if(err){toast(err);return}psave();paint();toast('Table loaded');return}
-  if(a==='tblclear'){if(!confirm2(b,'Tap again'))return;const k=b.dataset.k,r=R();if(k==='cobraDur'){r.tables.cobraDur=[];r.tables.cobraP=[]}else r.tables[k]=[];psave();paint();return}
+  if(a==='tblclear'){if(!confirm2(b,'Tap again'))return;const k=b.dataset.k,r=R();if(k==='cobraDur'){r.tables.cobraDur=[];r.tables.cobraP=[]}else if(k.startsWith('air')){const A=r.air;({airStd:()=>{A.std={};A.stdStops=[]},airSur:()=>{A.sur={};A.surStops=[]},airEad:()=>{A.ead={}},airNs:()=>{A.nostop=[]},airBt:()=>{A.btLimit=[]}})[k]()}else r.tables[k]=[];psave();paint();return}
   if(a==='savetubes'){const r=R(),lines=sec.querySelector('#pr-tubes').value.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
     r.tubes=lines.map(l=>{const[n,rg,mx]=l.split('|').map(x=>(x||'').trim());const m=num(mx);return m!=null?{name:n,range:rg,kind:'mbar',max:m}:{name:n,range:rg,kind:'any'}});psave();paint();toast('Tubes saved');return}
 },true);

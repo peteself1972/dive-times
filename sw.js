@@ -1,7 +1,7 @@
 // OnPanel service worker: keeps the app working offline.
 // Bump VERSION whenever any app file changes so phones pick up the update.
-const VERSION = 'dive-times-v47';
-const SHELL = ['./', 'index.html', 'plan.js', 'jspdf.umd.min.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'pdfjs/pdf.mjs', 'pdfjs/pdf.worker.mjs'];
+const VERSION = 'dive-times-v48';
+const SHELL = ['./', 'index.html', 'air.html', 'plan.js', 'jspdf.umd.min.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'pdfjs/pdf.mjs', 'pdfjs/pdf.worker.mjs'];
 
 self.addEventListener('install', e => {
   // cache:'reload' skips the browser's HTTP cache so a new version never stores stale copies
@@ -21,9 +21,11 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin && !isFont) return;
   e.respondWith(caches.open(VERSION).then(async cache => {
     const nav = req.mode === 'navigate';
-    const key = nav ? 'index.html' : req;
+    // page navigations: the Air screen is air.html, everything else is the main (Sat) screen
+    const page = nav ? (url.pathname.endsWith('/air.html') ? 'air.html' : 'index.html') : null;
+    const key = nav ? page : req;
     const cached = await cache.match(key, { ignoreSearch: nav });
-    const fresh = (isFont ? fetch(req) : fetch(nav ? 'index.html' : req.url, { cache: 'no-cache' })).then(res => {
+    const fresh = (isFont ? fetch(req) : fetch(nav ? page : req.url, { cache: 'no-cache' })).then(res => {
       if (res && (res.ok || res.type === 'opaque')) cache.put(key, res.clone());
       return res;
     }).catch(() => cached);
