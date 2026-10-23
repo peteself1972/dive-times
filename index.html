@@ -351,9 +351,21 @@ function renderTiles(){const list=[{id:'bell'},...people()];
   document.getElementById('tiles').innerHTML=list.map(p=>`<div class="tile" data-tile="${p.id}">
     <div class="t-top"><div class="t-title"><span class="t-name">${esc(nameOf(p.id))}</span><span class="chip" data-k="chip"></span>${p.id==='bell'?'':`<input class="t-person" type="text" data-person="${p.id}" value="${esc(p.person||'')}" placeholder="Name" autocomplete="off" autocapitalize="words" aria-label="${esc(nameOf(p.id))} name" hidden>`}</div><button class="more" data-act="detail" data-who="${p.id}" aria-label="Details for ${esc(nameOf(p.id))}">›</button></div>
     <div class="t-row"><div class="t-cell"><div class="t-lab" data-k="lab"></div><div class="t-big" data-k="big"></div></div><div class="t-x" data-k="x"></div></div><div class="t-sub" data-k="sub"></div>
-    <div class="t-foot" data-k="foot"></div></div>`).join('')}
+    <div class="t-foot" data-k="foot"></div></div>`).join('');if(bellDown){const b=document.querySelector('.tile[data-tile="bell"]');if(b)b.style.order='1'}}
 function put(root,k,html){const el=root.querySelector(`[data-k="${k}"]`);if(el&&el.innerHTML!==html)el.innerHTML=html}
 function setCls(el,c){if(el.className!==c)el.className=c}
+// While the bell is locked off its tile slides down below the divers; locked on, finished or not started it sits at the top.
+// The move is animated (each tile glides from its old place), and the tap buttons ignore taps for a moment
+// afterwards so a quick second tap can't land on a diver's button that has just moved under the finger.
+let bellDown=null,moveGuardUntil=0;
+function placeBell(el,down){if(down===bellDown)return;const first=bellDown===null;bellDown=down;
+  const tiles=[...document.querySelectorAll('#tiles .tile')],before=new Map(tiles.map(t=>[t,t.getBoundingClientRect().top]));
+  el.style.order=down?'1':'';
+  if(first)return;
+  moveGuardUntil=Date.now()+700;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  for(const t of tiles){const dy=before.get(t)-t.getBoundingClientRect().top;if(!dy)continue;
+    t.animate([{transform:`translateY(${dy}px)`},{transform:'translateY(0)'}],{duration:350,easing:'cubic-bezier(.2,.8,.2,1)'})}}
 
 function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${who}"]`);if(!el)return;
   let chip,lab,big,sub='',cls='',x=[];let foot=`<button type="button" class="ft tapbtn${lockoutBlocked(who)?' blocked':''}" data-act="stamp" data-who="${who}">Tap ▸ <b>${LABEL[nextType(who)]}</b></button>`;
@@ -377,7 +389,7 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
     else{cls=c.visitOk?'sev-green':'sev-wait';chip='In bell '+clock(c.visitStart);lab=c.visitOk?'In bell · counts as break':'In bell';big=dur(c.visit,1);
       x=c.visitOk?[['Due back',clock(c.dueBack)]]:[['Break at',clock(c.visitStart+S().minBreak*MIN)],['Due back',clock(c.dueBack)]]}}
   const pressing=el.classList.contains('pressing')?' pressing':'';
-  setCls(el,'tile '+cls+pressing);put(el,'chip',chip);put(el,'lab',lab);put(el,'big',big);put(el,'sub',sub);put(el,'x',x.map(([l,v])=>`<div class="t-cell"><div class="t-lab">${l}</div><div class="t-val">${v}</div></div>`).join(''));put(el,'foot',foot)}
+  setCls(el,'tile '+cls+pressing);if(who==='bell')placeBell(el,bcalc(now).phase==='off');put(el,'chip',chip);put(el,'lab',lab);put(el,'big',big);put(el,'sub',sub);put(el,'x',x.map(([l,v])=>`<div class="t-cell"><div class="t-lab">${l}</div><div class="t-val">${v}</div></div>`).join(''));put(el,'foot',foot)}
 
 /* ---------- detail panel ---------- */
 let openWho=null;
@@ -484,7 +496,7 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');
   if(!b){if(e.target.closest('input'))return;const t=e.target.closest('.tile');if(t){if(held){held=false;return}toast('Tap the button at the foot of the tile to stamp')}return}
   const act=b.dataset.act;
-  if(act==='stamp'){stamp(b.dataset.who);return}
+  if(act==='stamp'){if(Date.now()<moveGuardUntil)return;stamp(b.dataset.who);return}
   if(act==='detail'){openDetail(b.dataset.who);return}
   if(act==='plan'){if(window.DP)DP.open('plan');return}
   if(act==='finish'){finish(b.dataset.who);return}
