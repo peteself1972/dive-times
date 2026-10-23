@@ -16,7 +16,7 @@
   box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -3px 0 rgba(0,0,0,.28),0 3px 0 rgba(0,0,0,.45),0 5px 10px rgba(0,0,0,.35);
   background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 55%,rgba(0,0,0,.14));
   transition:transform .06s ease,box-shadow .06s ease}
-.finbtn:active,.act:active,.more:active,.chipbtn:active,.back:active,#undo button:active,.tile.pressing .t-foot .ft.tapbtn{
+.finbtn:active,.act:active,.more:active,.chipbtn:active,.back:active,#undo button:active,.t-foot .ft.tapbtn:active{
   transform:translateY(3px);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.18),inset 0 -1px 0 rgba(0,0,0,.25),0 0 0 rgba(0,0,0,.45),0 2px 4px rgba(0,0,0,.3)}
 .t-foot .ft.tapbtn{background-color:rgba(255,255,255,.04)}
@@ -48,7 +48,7 @@
 :root{
   --bg:#0b1216; --panel:#121c22; --raise:#1a2730; --line:#263640;
   --fg:#e4edf1; --muted:#87989f; --accent:#6db3d6; --accent-ink:#06141b;
-  --ok:#3fcf8e; --ok-bg:#0f2a1f; --sub:#c9b8ff; --warn:#f0b03a; --crit:#ff6a52; --over-bg:#3a1410;
+  --ok:#3fcf8e; --ok-bg:#0f2a1f; --sub:#c9b8ff; --warn:#f0b03a; --crit:#ff6a52; --over-bg:#3a1410; --bell-bg:#191b36; --bell-line:#454a8c;
   --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
   --f-body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
   color-scheme:dark;
@@ -56,11 +56,11 @@
 @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
   --bg:#e9eef0; --panel:#ffffff; --raise:#f1f5f7; --line:#cfdae0;
   --fg:#0e1a20; --muted:#55666e; --accent:#1f6f98; --accent-ink:#ffffff;
-  --ok:#0f8a55; --ok-bg:#dcf5e9; --sub:#5a3aa8; --warn:#a96a00; --crit:#c8321c; --over-bg:#fde3de; color-scheme:light } }
+  --ok:#0f8a55; --ok-bg:#dcf5e9; --sub:#5a3aa8; --warn:#a96a00; --crit:#c8321c; --over-bg:#fde3de; --bell-bg:#e8eafb; --bell-line:#8f96d6; color-scheme:light } }
 :root[data-theme="light"]{
   --bg:#e9eef0; --panel:#ffffff; --raise:#f1f5f7; --line:#cfdae0;
   --fg:#0e1a20; --muted:#55666e; --accent:#1f6f98; --accent-ink:#ffffff;
-  --ok:#0f8a55; --ok-bg:#dcf5e9; --sub:#5a3aa8; --warn:#a96a00; --crit:#c8321c; --over-bg:#fde3de; color-scheme:light }
+  --ok:#0f8a55; --ok-bg:#dcf5e9; --sub:#5a3aa8; --warn:#a96a00; --crit:#c8321c; --over-bg:#fde3de; --bell-bg:#e8eafb; --bell-line:#8f96d6; color-scheme:light }
 
 html,body{background:var(--bg);color:var(--fg)}
 body{font-family:var(--f-body);font-size:16px;line-height:1.4;padding-inline:16px;padding-block:0 120px}
@@ -92,6 +92,13 @@ main{display:grid;gap:12px;max-width:560px;margin:12px auto 0}
   padding:12px 14px 10px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
   transition:transform .12s ease, filter .12s ease}
 .tile.pressing{transform:scale(.98);filter:brightness(1.15)}
+/* the bell tile: its own tint and outline so it never reads as a diver */
+.tile[data-tile="bell"]{background:var(--bell-bg);border-top:2px solid var(--bell-line);border-right:2px solid var(--bell-line);border-bottom:2px solid var(--bell-line);margin-bottom:6px}
+.tile[data-tile="bell"].sev-over{background:var(--over-bg)}
+.tile[data-tile="bell"] .t-name::before{content:"";display:inline-block;width:.55em;height:.55em;border-radius:50%;background:var(--bell-line);margin-right:.35em;vertical-align:.12em}
+/* only the button stamps: the rest of the tile is not a tap target */
+.tile{cursor:default}
+button.ft.tapbtn{font-family:inherit;font-weight:inherit;text-transform:inherit;background-color:rgba(255,255,255,.04);cursor:pointer}
 .t-top{display:flex;align-items:center;gap:10px;min-width:0}
 .tile{min-width:0}
 .t-name{font-family:var(--f-display);font-weight:700;font-size:1.45rem;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
@@ -221,7 +228,7 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
     <label class="fld num"><span>Depth msw</span><input type="text" id="i-depth" data-info="depth" inputmode="decimal" autocomplete="off" placeholder="–"></label>
   </div>
   <div id="tiles"></div>
-  <p class="hint">Tap a tile to stamp the time shown at its foot. Hold a tile, or tap ›, for full times and to correct them.</p>
+  <p class="hint">Tap the button at the foot of a tile to stamp that time. Hold a tile, or tap ›, for full times and to correct them.</p>
 
   <details class="card" id="settings">
     <summary>Limits &amp; team</summary>
@@ -340,7 +347,7 @@ document.getElementById('undobtn').addEventListener('click',()=>{if(!undoInfo)re
 
 /* ---------- tiles ---------- */
 function renderTiles(){const list=[{id:'bell'},...people()];
-  document.getElementById('tiles').innerHTML=list.map(p=>`<div class="tile" data-tile="${p.id}" role="button" tabindex="0">
+  document.getElementById('tiles').innerHTML=list.map(p=>`<div class="tile" data-tile="${p.id}">
     <div class="t-top"><div class="t-title"><span class="t-name">${esc(nameOf(p.id))}</span><span class="chip" data-k="chip"></span>${p.id==='bell'?'':`<input class="t-person" type="text" data-person="${p.id}" value="${esc(p.person||'')}" placeholder="Name" autocomplete="off" autocapitalize="words" aria-label="${esc(nameOf(p.id))} name" hidden>`}</div><button class="more" data-act="detail" data-who="${p.id}" aria-label="Details for ${esc(nameOf(p.id))}">›</button></div>
     <div class="t-row"><div class="t-cell"><div class="t-lab" data-k="lab"></div><div class="t-big" data-k="big"></div></div><div class="t-x" data-k="x"></div></div><div class="t-sub" data-k="sub"></div>
     <div class="t-foot" data-k="foot"></div></div>`).join('')}
@@ -348,7 +355,7 @@ function put(root,k,html){const el=root.querySelector(`[data-k="${k}"]`);if(el&&
 function setCls(el,c){if(el.className!==c)el.className=c}
 
 function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${who}"]`);if(!el)return;
-  let chip,lab,big,sub='',cls='',x=[];let foot=`<span class="ft tapbtn${lockoutBlocked(who)?' blocked':''}">Tap ▸ <b>${LABEL[nextType(who)]}</b></span>`;
+  let chip,lab,big,sub='',cls='',x=[];let foot=`<button type="button" class="ft tapbtn${lockoutBlocked(who)?' blocked':''}" data-act="stamp" data-who="${who}">Tap ▸ <b>${LABEL[nextType(who)]}</b></button>`;
   if(who==='bell'){const c=bcalc(now);
     if(c.phase==='off'||c.phase==='on')foot+=`<button class="finbtn${unfinished().length?' blocked':''}" data-act="finish" data-who="bell">Finish bell run</button>`;
     if(c.phase==='ready'){chip='Ready';lab='Bell not locked off';big='–:––'}
@@ -456,13 +463,12 @@ function ring(level){setTimeout(()=>notify(level),50);const n={info:1,warn:2,cri
 /* ---------- tap vs hold ---------- */
 let holdT=null,held=false,sx=0,sy=0,pressEl=null;
 function endPress(){clearTimeout(holdT);holdT=null;if(pressEl)pressEl.classList.remove('pressing');pressEl=null}
-document.addEventListener('pointerdown',e=>{const t=e.target.closest('.tile');if(!t||e.target.closest('.more,.finbtn,input'))return;
+document.addEventListener('pointerdown',e=>{const t=e.target.closest('.tile');if(!t||e.target.closest('.more,.finbtn,.tapbtn,input'))return;
   held=false;sx=e.clientX;sy=e.clientY;pressEl=t;t.classList.add('pressing');
   holdT=setTimeout(()=>{held=true;const who=t.dataset.tile;endPress();try{navigator.vibrate&&navigator.vibrate([30,40,30])}catch(e){}openDetail(who)},600)});
 document.addEventListener('pointermove',e=>{if(holdT&&(Math.abs(e.clientX-sx)>12||Math.abs(e.clientY-sy)>12))endPress()},{passive:true});
 ['pointerup','pointercancel'].forEach(n=>document.addEventListener(n,endPress));
 document.addEventListener('contextmenu',e=>{if(e.target.closest('.tile'))e.preventDefault()});
-document.addEventListener('keydown',e=>{const t=e.target.closest&&e.target.closest('.tile');if(t&&(e.key==='Enter'||e.key===' ')&&e.target===t){e.preventDefault();stamp(t.dataset.tile)}});
 
 /* ---------- clicks ---------- */
 function okFlash(b,text,after){const orig=b.innerHTML;b.classList.add('okflash');b.textContent=text;
@@ -475,8 +481,9 @@ function toast(m){const t=document.getElementById('toast');t.textContent=m;t.hid
 
 document.addEventListener('click',async e=>{
   const b=e.target.closest('[data-act]');
-  if(!b){if(e.target.closest('input'))return;const t=e.target.closest('.tile');if(t){if(held){held=false;return}stamp(t.dataset.tile)}return}
+  if(!b){if(e.target.closest('input'))return;const t=e.target.closest('.tile');if(t){if(held){held=false;return}toast('Tap the button at the foot of the tile to stamp')}return}
   const act=b.dataset.act;
+  if(act==='stamp'){stamp(b.dataset.who);return}
   if(act==='detail'){openDetail(b.dataset.who);return}
   if(act==='plan'){if(window.DP)DP.open('plan');return}
   if(act==='finish'){finish(b.dataset.who);return}
