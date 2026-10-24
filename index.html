@@ -72,6 +72,7 @@ button,input{font:inherit;color:inherit}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:6;margin-inline:-16px;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--line);display:grid;gap:6px}
 .barrow,#alerts{max-width:560px;width:100%;margin:0 auto}
 .barrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.barrow h1{flex:1}
 .bar h1{font-family:var(--f-display);font-weight:700;font-size:1.25rem;letter-spacing:.06em;text-transform:uppercase;margin:0}
 .modesw{display:flex;gap:4px;flex:1}
 .modesw a{text-decoration:none;color:var(--fg);font-family:var(--f-display);font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px}
@@ -216,10 +217,12 @@ input[type="time"]{background:var(--raise);border:1px solid var(--line);border-r
 <div class="bar" id="bar">
   <div class="barrow">
     <h1>OnPanel</h1>
-    <nav class="modesw" aria-label="Diving mode"><a class="chipbtn" href="./" aria-pressed="true" aria-current="page">Sat</a><a class="chipbtn" href="air.html" data-mode-go="air" aria-pressed="false">Air</a></nav>
     <span class="clock" id="clock">--:--</span>
-    <button class="chipbtn" id="wake" aria-pressed="false">Screen on</button>
+  </div>
+  <div class="barrow">
+    <nav class="modesw" aria-label="Diving mode"><a class="chipbtn" href="./" aria-pressed="true" aria-current="page">Sat</a><a class="chipbtn" href="air.html" data-mode-go="air" aria-pressed="false">Air</a></nav>
     <button class="chipbtn" id="test">Test alarm</button>
+    <button class="chipbtn" id="wake" aria-pressed="false">Screen on</button>
   </div>
   <div id="alerts" aria-live="assertive"></div>
 </div>
