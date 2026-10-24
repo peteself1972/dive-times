@@ -88,10 +88,15 @@ button,input{font:inherit;color:inherit}
 main{display:grid;gap:12px;max-width:560px;margin:12px auto 0}
 #tiles{display:grid;gap:12px}
 
-.tile{position:relative;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);border-left:8px solid var(--line);border-radius:14px;
+.tile{position:relative;display:grid;gap:2px;background:var(--panel);border:1px solid var(--line);--bar:var(--line);border-left:10px solid color-mix(in srgb,var(--bar) 25%,var(--panel));border-radius:14px;
   padding:12px 14px 10px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation;
   transition:transform .12s ease, filter .12s ease}
 .tile.pressing{transform:scale(.98);filter:brightness(1.15)}
+/* left-edge time gauge: the status colour drains from the top as the tile's countdown runs out (full = start of the period,
+   empty = due). The faint part of the edge shows the full length. Back in the bell it fills up until the visit counts as a break. */
+.t-gauge{position:absolute;left:-10px;top:-1px;bottom:-1px;width:10px;border-radius:14px 0 0 14px;overflow:hidden;pointer-events:none}
+.t-gauge b{position:absolute;left:0;right:0;bottom:0;height:calc(var(--g,1)*100%);background:var(--bar);transition:height .6s linear}
+@media (prefers-reduced-motion:reduce){.t-gauge b{transition:none}}
 /* only the button stamps: the rest of the tile is not a tap target */
 .tile{cursor:default}
 button.ft.tapbtn{font-family:inherit;font-weight:inherit;text-transform:inherit;background-color:rgba(255,255,255,.04);cursor:pointer}
@@ -122,13 +127,13 @@ button.ft.tapbtn{font-family:inherit;font-weight:inherit;text-transform:inherit;
 .finbtn.blocked,.act.fin.blocked,.tapbtn.blocked{opacity:.4}
 .finbtn{flex:0 0 auto;min-height:44px;padding:0 14px;border-radius:10px;border:2px solid #fff;background:#c8321c;color:#fff;
   font-family:var(--f-display);font-weight:700;font-size:1.05rem;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
-.sev-done{border-left-color:var(--muted);opacity:.85} .sev-done .t-foot{color:var(--muted)}
+.sev-done{--bar:var(--muted);opacity:.85} .sev-done .t-foot{color:var(--muted)}
 
-.sev-ok{border-left-color:var(--ok)} .sev-ok .chip{color:var(--ok);border-color:var(--ok)}
-.sev-wait{border-left-color:var(--accent)} .sev-wait .chip{color:var(--accent);border-color:var(--accent)}
-.sev-green{border-left-color:var(--ok);background:var(--ok-bg)} .sev-green .t-big{color:var(--ok)} .sev-green .chip{color:var(--ok);border-color:var(--ok)}
-.sev-warn{border-left-color:var(--warn)} .sev-warn .t-big{color:var(--warn)} .sev-warn .chip{color:var(--warn);border-color:var(--warn)}
-.sev-crit,.sev-over{border-left-color:var(--crit)} .sev-crit .t-big,.sev-over .t-big{color:var(--crit)} .sev-crit .chip,.sev-over .chip{color:var(--crit);border-color:var(--crit)}
+.sev-ok{--bar:var(--ok)} .sev-ok .chip{color:var(--ok);border-color:var(--ok)}
+.sev-wait{--bar:var(--accent)} .sev-wait .chip{color:var(--accent);border-color:var(--accent)}
+.sev-green{--bar:var(--ok);background:var(--ok-bg)} .sev-green .t-big{color:var(--ok)} .sev-green .chip{color:var(--ok);border-color:var(--ok)}
+.sev-warn{--bar:var(--warn)} .sev-warn .t-big{color:var(--warn)} .sev-warn .chip{color:var(--warn);border-color:var(--warn)}
+.sev-crit,.sev-over{--bar:var(--crit)} .sev-crit .t-big,.sev-over .t-big{color:var(--crit)} .sev-crit .chip,.sev-over .chip{color:var(--crit);border-color:var(--crit)}
 .sev-over{background:var(--over-bg)}
 /* while a warning/overdue alarm is active, all writing on the tile takes the alarm colour */
 .tile.sev-ok,.tile.sev-green{--tc:var(--ok)} .tile.sev-wait{--tc:var(--accent)} .tile.sev-warn{--tc:var(--warn)} .tile.sev-crit,.tile.sev-over{--tc:var(--crit)}
@@ -343,7 +348,7 @@ document.getElementById('undobtn').addEventListener('click',()=>{if(!undoInfo)re
 
 /* ---------- tiles ---------- */
 function renderTiles(){const list=[{id:'bell'},...people()];
-  document.getElementById('tiles').innerHTML=list.map(p=>`<div class="tile" data-tile="${p.id}">
+  document.getElementById('tiles').innerHTML=list.map(p=>`<div class="tile" data-tile="${p.id}"><i class="t-gauge" aria-hidden="true"><b></b></i>
     <div class="t-top"><div class="t-title"><span class="t-name">${esc(nameOf(p.id))}</span><span class="chip" data-k="chip"></span>${p.id==='bell'?'':`<input class="t-person" type="text" data-person="${p.id}" value="${esc(p.person||'')}" placeholder="Name" autocomplete="off" autocapitalize="words" aria-label="${esc(nameOf(p.id))} name" hidden>`}</div><button class="more" data-act="detail" data-who="${p.id}" aria-label="Details for ${esc(nameOf(p.id))}">›</button></div>
     <div class="t-row"><div class="t-cell"><div class="t-lab" data-k="lab"></div><div class="t-big" data-k="big"></div></div><div class="t-x" data-k="x"></div></div><div class="t-sub" data-k="sub"></div>
     <div class="t-foot" data-k="foot"></div></div>`).join('');if(bellDown){const b=document.querySelector('.tile[data-tile="bell"]');if(b)b.style.order='1'}}
@@ -363,13 +368,13 @@ function placeBell(el,down){if(down===bellDown)return;const first=bellDown===nul
     t.animate([{transform:`translateY(${dy}px)`},{transform:'translateY(0)'}],{duration:350,easing:'cubic-bezier(.2,.8,.2,1)'})}}
 
 function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${who}"]`);if(!el)return;
-  let chip,lab,big,sub='',cls='',x=[];let foot=`<button type="button" class="ft tapbtn${lockoutBlocked(who)?' blocked':''}" data-act="stamp" data-who="${who}">Tap ▸ <b>${LABEL[nextType(who)]}</b></button>`;
+  let chip,lab,big,sub='',cls='',x=[],g=1;let foot=`<button type="button" class="ft tapbtn${lockoutBlocked(who)?' blocked':''}" data-act="stamp" data-who="${who}">Tap ▸ <b>${LABEL[nextType(who)]}</b></button>`;
   if(who==='bell'){const c=bcalc(now);
     if(c.phase==='off'||c.phase==='on')foot+=`<button class="finbtn${unfinished().length?' blocked':''}" data-act="finish" data-who="bell">Finish bell run</button>`;
     if(c.phase==='ready'){chip='Ready';lab='Bell not locked off';big='–:––'}
     else if(c.phase==='done'){cls='sev-done';chip='Finished '+clock(c.last);lab='Total bell run';big=dur(c.run);
       sub=`first locked off ${clock(c.first)} · locked on ${c.lockOns}×`;foot='<span class="ft">Bell run finished · hold for details</span>'}
-    else if(c.phase==='off'){const rem=c.due-now,s=sev(rem);cls='sev-'+s;chip='Locked off '+clock(c.last);
+    else if(c.phase==='off'){const rem=c.due-now,s=sev(rem);cls='sev-'+s;g=rem/(c.due-c.first);chip='Locked off '+clock(c.last);
       lab=rem>0?'Lock on due in':'Lock on overdue';big=(rem>0?'':'+')+dur(rem,1);x=[['Due back',clock(c.due)],['Bell run',dur(c.run)]]}
     else{chip='Locked on '+clock(c.last);lab='Total bell run';big=dur(c.run);x=[['Due back',clock(c.due)],['Locked on',c.lockOns+'×']]}}
   else{const d0=state.divers.find(d=>d.id===who),c=dcalc(d0,now);
@@ -378,13 +383,14 @@ function paintTile(who,now){const el=document.querySelector(`.tile[data-tile="${
     if(c.phase==='ready'){chip='';lab='Not in water';big='–:––'}
     else if(c.phase==='done'){cls='sev-done';chip='Finished '+clock(c.end);lab='Total in water';big=dur(c.water);
       sub=`finished ${clock(c.end)} · in water from ${clock(c.first)} · breaks ${c.breaks}`;foot='<span class="ft">Dive finished · hold for details</span>'}
-    else if(c.phase==='water'){const rem=c.primary.target-now,s=sev(rem);cls='sev-'+s;chip='In water '+clock(d0.ev.at(-1).t);
+    else if(c.phase==='water'){const rem=c.primary.target-now,s=sev(rem);cls='sev-'+s;
+      g=rem/(c.primary.label==='Break due'?S().breakDue*MIN:c.primary.target-c.first);chip='In water '+clock(d0.ev.at(-1).t);
       lab=rem>0?c.primary.label+' in':c.primary.label+' overdue';big=(rem>0?'':'+')+dur(rem,1);
       x=[['Break due at',c.breakDue>=c.dueBack?'N/A':clock(c.breakDue)],['Due back',clock(c.dueBack)]]}
-    else{cls=c.visitOk?'sev-green':'sev-wait';chip='In bell '+clock(c.visitStart);lab=c.visitOk?'In bell · counts as break':'In bell';big=dur(c.visit,1);
+    else{cls=c.visitOk?'sev-green':'sev-wait';g=c.visit/(S().minBreak*MIN);chip='In bell '+clock(c.visitStart);lab=c.visitOk?'In bell · counts as break':'In bell';big=dur(c.visit,1);
       x=c.visitOk?[['Due back',clock(c.dueBack)]]:[['Break at',clock(c.visitStart+S().minBreak*MIN)],['Due back',clock(c.dueBack)]]}}
   const pressing=el.classList.contains('pressing')?' pressing':'';
-  setCls(el,'tile '+cls+pressing);if(who==='bell')placeBell(el,bcalc(now).phase==='off');put(el,'chip',chip);put(el,'lab',lab);put(el,'big',big);put(el,'sub',sub);put(el,'x',x.map(([l,v])=>`<div class="t-cell"><div class="t-lab">${l}</div><div class="t-val">${v}</div></div>`).join(''));put(el,'foot',foot)}
+  setCls(el,'tile '+cls+pressing);{const gv=String(Math.round(Math.min(1,Math.max(0,isFinite(g)?g:1))*1000)/1000);if(el.style.getPropertyValue('--g')!==gv)el.style.setProperty('--g',gv)}if(who==='bell')placeBell(el,bcalc(now).phase==='off');put(el,'chip',chip);put(el,'lab',lab);put(el,'big',big);put(el,'sub',sub);put(el,'x',x.map(([l,v])=>`<div class="t-cell"><div class="t-lab">${l}</div><div class="t-val">${v}</div></div>`).join(''));put(el,'foot',foot)}
 
 /* ---------- detail panel ---------- */
 let openWho=null;
