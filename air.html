@@ -135,6 +135,8 @@ button.ft.tapbtn{font-family:inherit;font-weight:inherit;text-transform:inherit;
 .t-foot .ft{flex:1;min-width:0;font-size:1.05rem}
 .t-foot b{color:var(--fg)}
 .t-foot .ft.tapbtn{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35em;min-height:44px;padding:0 12px;border:2px solid currentColor;border-radius:10px;white-space:nowrap;color:var(--fg);font-size:1rem;letter-spacing:.04em;background-color:rgba(255,255,255,.04)}
+/* the action button spans the full width of the tile, as on the Sat screen */
+.t-foot .ft.tapbtn{flex:1 1 100%;justify-content:center}
 .t-foot .ft.tapbtn.early{color:var(--warn)}
 .steps{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:6px}
 .steps i{font-style:normal;font-family:var(--f-display);font-weight:600;font-size:1.05rem;border:1px solid var(--line);border-radius:8px;padding:1px 8px;font-variant-numeric:tabular-nums;color:var(--muted)}
