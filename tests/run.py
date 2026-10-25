@@ -48,14 +48,15 @@ AIR_DIVES = r'''(()=>{const M=60000,t0=Date.UTC(2026,0,5,8,0,13),out=[];
   {method:'surdo2',gas:'air',o2:'',depth:'20',ev:[['ls',0],['ad',2],['lb',60],['as',62,9],['lv',64,9],['su',66],['c12',70.5],['air',70.5+20],['o2',70.5+25],['ca',70.5+40],['cs',70.5+45]]},
   {method:'inwater',gas:'nx',o2:'36',depth:'18',ev:[['ls',0],['ad',1.5],['lb',105],['as',107,6],['lv',110,6],['as',110.5,3],['lv',122,3],['su',123]]},
   {method:'nostop',gas:'air',o2:'',depth:'15',ev:[['ls',0],['ad',1],['lb',40],['su',42]]},
-  {method:'surdo2',gas:'air',o2:'',depth:'25',ev:[['ls',0],['lb',40],['su',45],['c12',50.2]]}];
+  {method:'surdo2',gas:'air',o2:'',depth:'25',ev:[['ls',0],['lb',40],['su',45],['c12',50.2]]},
+  {method:'inwater',gas:'air',o2:'',depth:'30',ev:[['ls',0],['lb',44],['as',46.05,9],['lv',47,9]]}];  // ascent right at the slow-ascent threshold
  for(const r of runs){const p=P();p.method=r.method;p.gas=r.gas;p.o2=r.o2;p.depth=r.depth;p.mode='B';
   const d=D('d1');d.ev=[];d.depth='';
   for(let i=0;i<r.ev.length;i++){const [type,m,dep]=r.ev[i];const e={type,t:t0+m*M};if(dep!=null)e.depth=dep;d.ev.push(e);
    for(const dt of[0,0.5,1,3,7]){const now=e.t+dt*M;if(i+1<r.ev.length&&now>t0+r.ev[i+1][1]*M)continue;
     const sc=sched(d,now);const o=['c12','o2','air','ca'].includes(type)?o2calc(d,sc,now):null;
     paintTile('d1',now);const tile=document.querySelector('.tile[data-tile="d1"]');
-    out.push([r.method,type,dt,sc.bt??null,sc.err||null,sc.stops,sc.o2??null,(sc.notes||[]).map(n=>n.t),nextAct(d,now),o&&[o.on,o.left,o.breakAt??null,o.endAt],stopInfo(d,sc,now),tile.className,tile.innerText.replace(/\s+/g,' ')])}}}
+    out.push([r.method,type,dt,sc.bt??null,sc.delay??null,sc.err||null,sc.stops,sc.o2??null,(sc.notes||[]).map(n=>n.t),nextAct(d,now),o&&[o.on,o.left,o.breakAt??null,o.endAt],stopInfo(d,sc,now),tile.className,tile.innerText.replace(/\s+/g,' ')])}}}
  return out})()'''
 
 # ---- Air with no rules profile: version A only, stops entered by hand
