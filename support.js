@@ -31,7 +31,8 @@ const css=document.createElement('style');css.textContent=`
 .sp-line .chipbtn{min-height:36px}
 .sp-new{display:flex;align-items:center;gap:10px;border:1px solid var(--accent);color:var(--fg);background:var(--panel);border-radius:10px;padding:8px 12px;font-weight:600;max-width:560px;margin:8px auto 0}
 .sp-new.t{border-color:var(--crit)}
-.sp-new span{flex:1}
+.sp-new{flex-wrap:wrap;justify-content:flex-end}
+.sp-new span{flex:1 1 100%}
 .sp-new button{border:1px solid currentColor;background:transparent;color:inherit;border-radius:8px;padding:4px 10px;cursor:pointer;font:inherit}
 #sp-dlg{position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;padding:16px 16px 120px}
 #sp-dlg .w{max-width:560px;margin:0 auto;display:grid;gap:14px}
